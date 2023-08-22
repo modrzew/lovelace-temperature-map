@@ -1,4 +1,5 @@
 {
-    "name": "Boilerplate Card",
-    "render_readme": true
+    "name": "Custom Cards",
+    "render_readme": true,
+    "filename": "custom-cards.js"
 }

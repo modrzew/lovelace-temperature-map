@@ -1,19 +1,14 @@
 {
-  "name": "boilerplate-card",
-  "version": "1.4.1",
-  "description": "Lovelace boilerplate-card",
-  "keywords": [
-    "home-assistant",
-    "homeassistant",
-    "hass",
-    "automation",
-    "lovelace",
-    "custom-cards"
-  ],
-  "module": "boilerplate-card.js",
-  "repository": "git@github.com:custom_cards/boilerplate-card.git",
-  "author": "Ian Richardson <iantrich@gmail.com>",
-  "license": "MIT",
+  "name": "ha-custom-components",
+  "version": "0.0.1",
+  "description": "All my custom Home Assistant components and integrations",
+  "scripts": {
+    "start": "rollup -c rollup.config.dev.js --watch",
+    "build": "npm run lint && npm run rollup",
+    "lint": "eslint src/*.ts",
+    "rollup": "rollup -c"
+  },
+  "license": "UNLICENSED",
   "dependencies": {
     "@lit-labs/scoped-registry-mixin": "^1.0.0",
     "@material/mwc-formfield": "^0.25.3",
@@ -40,14 +35,15 @@
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-import": "^2.24.0",
     "eslint-plugin-prettier": "^4.0.0",
+    "glob": "^10.3.3",
     "prettier": "^2.4.1",
-    "rollup": "^2.58.0",
+    "rollup": "^2.79.1",
     "rollup-plugin-babel": "^4.4.0",
     "rollup-plugin-commonjs": "^10.1.0",
     "rollup-plugin-node-resolve": "^5.2.0",
     "rollup-plugin-serve": "^1.1.0",
     "rollup-plugin-terser": "^7.0.2",
-    "rollup-plugin-typescript2": "^0.30.0",
+    "rollup-plugin-typescript2": "^0.35.0",
     "typescript": "^4.4.3"
   },
   "resolutions": {
@@ -55,11 +51,5 @@
     "lit-html": "2.1.2",
     "lit-element": "3.1.2",
     "@lit/reactive-element": "1.2.1"
-  },
-  "scripts": {
-    "start": "rollup -c rollup.config.dev.js --watch",
-    "build": "npm run lint && npm run rollup",
-    "lint": "eslint src/*.ts",
-    "rollup": "rollup -c"
   }
 }

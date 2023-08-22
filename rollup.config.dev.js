@@ -1,3 +1,6 @@
+import glob from 'glob';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import resolve from 'rollup-plugin-node-resolve';
 import typescript from 'rollup-plugin-typescript2';
 import babel from 'rollup-plugin-babel';
@@ -10,7 +13,19 @@ import { ignoreSelectFiles } from './elements/ignore/select';
 import { ignoreSwitchFiles } from './elements/ignore/switch';
 
 export default {
-  input: ['src/boilerplate-card.ts'],
+  input: Object.fromEntries(
+    glob.sync('src/cards/*.ts').map(file => [
+      // This remove `src/` as well as the file extension from each
+      // file, so e.g. src/nested/foo.js becomes nested/foo
+      path.relative(
+        'src',
+        file.slice(0, file.length - path.extname(file).length)
+      ),
+      // This expands the relative paths to absolute paths, so e.g.
+      // src/nested/foo becomes /project/src/nested/foo.js
+      fileURLToPath(new URL(file, import.meta.url))
+    ])
+  ),
   output: {
     dir: './dist',
     format: 'es',

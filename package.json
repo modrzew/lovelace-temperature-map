@@ -5,7 +5,7 @@
   "scripts": {
     "start": "rollup -c rollup.config.dev.js --watch",
     "build": "npm run lint && npm run rollup",
-    "lint": "eslint src/*.ts",
+    "lint": "eslint src/**/*.ts",
     "rollup": "rollup -c"
   },
   "license": "UNLICENSED",
@@ -20,6 +20,7 @@
     "@material/mwc-switch": "^0.25.3",
     "@material/mwc-textfield": "^0.25.3",
     "custom-card-helpers": "^1.7.2",
+    "date-fns": "^2.30.0",
     "home-assistant-js-websocket": "^5.11.1",
     "lit": "^2.0.0"
   },
@@ -35,7 +36,6 @@
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-import": "^2.24.0",
     "eslint-plugin-prettier": "^4.0.0",
-    "glob": "^10.3.3",
     "prettier": "^2.4.1",
     "rollup": "^2.79.1",
     "rollup-plugin-babel": "^4.4.0",

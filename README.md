@@ -74,12 +74,12 @@ Note: this is available only in vscode ensure you have the [Remote Containers](h
 1. Fork and clone the repository.
 2. Open a [devcontainer][devcontainer] terminal and run `npm start` when it's ready.
 3. The compiled `.js` file will be accessible on
-   `http://127.0.0.1:5000/boilerplate-card.js`.
+   `http://127.0.0.1:3000/boilerplate-card.js`.
 4. On a running Home Assistant installation add this to your Lovelace
    `resources:`
 
 ```yaml
-- url: 'http://127.0.0.1:5000/boilerplate-card.js'
+- url: 'http://127.0.0.1:3000/boilerplate-card.js'
   type: module
 ```
 

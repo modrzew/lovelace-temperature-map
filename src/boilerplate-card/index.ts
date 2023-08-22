@@ -11,10 +11,10 @@ import {
   getLovelace,
 } from 'custom-card-helpers'; // This is a community maintained npm module with common helper functions/types. https://github.com/custom-cards/custom-card-helpers
 
-import type { BoilerplateCardConfig } from '../types';
-import { actionHandler } from '../action-handler-directive';
-import { CARD_VERSION } from '../const';
-import { localize } from '../localize/localize';
+import type { BoilerplateCardConfig } from './types';
+import { actionHandler } from './action-handler-directive';
+import { CARD_VERSION } from './const';
+import { localize } from './localize/localize';
 
 /* eslint no-console: 0 */
 console.info(
@@ -35,7 +35,7 @@ console.info(
 @customElement('boilerplate-card')
 export class BoilerplateCard extends LitElement {
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
-    await import('../editor');
+    await import('./editor');
     return document.createElement('boilerplate-card-editor');
   }
 

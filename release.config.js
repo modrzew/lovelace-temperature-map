@@ -4,7 +4,5 @@ module.exports = {
       assets: 'dist/custom-cards.js',
     }],
   ],
-  branches: [
-    { name: 'master' },
-  ]
+  branches: ["main"],
 };

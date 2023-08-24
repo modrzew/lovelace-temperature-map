@@ -1,10 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { LitElement, html, TemplateResult, css, PropertyValues, CSSResultGroup } from 'lit';
+import { LitElement, html, TemplateResult, css, CSSResultGroup } from 'lit';
 import { customElement, property, state } from 'lit/decorators';
 import { format, parseISO } from 'date-fns';
 import {
   HomeAssistant,
-  hasConfigOrEntityChanged,
   hasAction,
   ActionHandlerEvent,
   handleAction,
@@ -59,24 +58,13 @@ export class TransportNswCard extends LitElement {
       throw new Error("You need to define an entity");
     }
 
-    this.config = {
-      ...config,
-    };
+    this.config = config;
   }
 
   // The height of your card. Home Assistant uses this to automatically
   // distribute all cards over the available columns.
   getCardSize(): number {
     return 3;
-  }
-
-  // https://lit.dev/docs/components/lifecycle/#reactive-update-cycle-performing
-  protected shouldUpdate(changedProps: PropertyValues): boolean {
-    if (!this.config) {
-      return false;
-    }
-
-    return hasConfigOrEntityChanged(this, changedProps, false);
   }
 
   // https://lit.dev/docs/components/rendering/

@@ -19,12 +19,7 @@ jobs:
           npm run build
 
       # Upload build file to the release as an asset.
-      - name: Upload zip to release
-        uses: svenstaro/upload-release-action@v1-release
-
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: /home/runner/work/ha-custom-cards/ha-custom-cards/dist/custom-cards.js
-          asset_name: custom-cards.js
-          tag: ${{ github.ref }}
-          overwrite: true
+      - name: Release
+        run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

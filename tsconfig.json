@@ -8,14 +8,26 @@
       "dom",
       "dom.iterable"
     ],
+    "useDefineForClassFields": false,
+    "verbatimModuleSyntax": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "noUnusedLocals": true,
     "noEmit": true,
     "noUnusedParameters": true,
-    "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "strict": true,
-    "noImplicitAny": false,
+    "allowSyntheticDefaultImports": true,
+    // "noImplicitReturns": true,
+    // "noImplicitAny": true,
+    "noImplicitThis": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "experimentalDecorators": true
+    "strictPropertyInitialization": false,
+    "plugins": [
+      {
+        "name": "ts-lit-plugin"
+      }
+    ]
   }
 }

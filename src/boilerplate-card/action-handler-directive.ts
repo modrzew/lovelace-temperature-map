@@ -1,14 +1,14 @@
 import { noChange } from 'lit';
-import { AttributePart, directive, Directive, DirectiveParameters } from 'lit/directive';
+import { type AttributePart, directive, Directive, type DirectiveParameters } from 'lit/directive';
 
-import { ActionHandlerDetail, ActionHandlerOptions } from 'custom-card-helpers/dist/types';
+import { type ActionHandlerDetail, type ActionHandlerOptions } from 'custom-card-helpers/dist/types';
 import { fireEvent } from 'custom-card-helpers';
 
 const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.maxTouchPoints > 0;
 
 interface ActionHandlerInterface extends HTMLElement {
   holdTime: number;
-  bind(element: Element, options): void;
+  bind(element: Element, options?: ActionHandlerOptions): void;
 }
 interface ActionHandlerElement extends HTMLElement {
   actionHandler?: boolean;
@@ -63,7 +63,7 @@ class ActionHandler extends HTMLElement implements ActionHandlerInterface {
     });
   }
 
-  public bind(element: ActionHandlerElement, options): void {
+  public bind(element: ActionHandlerElement, options?: ActionHandlerOptions): void {
     if (element.actionHandler) {
       return;
     }
@@ -84,8 +84,8 @@ class ActionHandler extends HTMLElement implements ActionHandlerInterface {
 
     const start = (ev: Event): void => {
       this.held = false;
-      let x;
-      let y;
+      let x: number;
+      let y: number;
       if ((ev as TouchEvent).touches) {
         x = (ev as TouchEvent).touches[0].pageX;
         y = (ev as TouchEvent).touches[0].pageY;
@@ -111,7 +111,7 @@ class ActionHandler extends HTMLElement implements ActionHandlerInterface {
       this.timer = undefined;
       if (this.held) {
         fireEvent(element, 'action', { action: 'hold' });
-      } else if (options.hasDoubleClick) {
+      } else if (options?.hasDoubleClick) {
         if ((ev.type === 'click' && (ev as MouseEvent).detail < 2) || !this.dblClickTimeout) {
           this.dblClickTimeout = window.setTimeout(() => {
             this.dblClickTimeout = undefined;
@@ -178,11 +178,11 @@ const getActionHandler = (): ActionHandler => {
 };
 
 export const actionHandlerBind = (element: ActionHandlerElement, options?: ActionHandlerOptions): void => {
-  const actionhandler: ActionHandler = getActionHandler();
-  if (!actionhandler) {
+  const actionHandler: ActionHandler = getActionHandler();
+  if (!actionHandler) {
     return;
   }
-  actionhandler.bind(element, options);
+  actionHandler.bind(element, options);
 };
 
 export const actionHandler = directive(

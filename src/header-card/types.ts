@@ -1,4 +1,4 @@
-import { LovelaceCard, LovelaceCardConfig, LovelaceCardEditor } from 'custom-card-helpers';
+import { type LovelaceCard, type LovelaceCardConfig, type LovelaceCardEditor } from 'custom-card-helpers';
 
 declare global {
   interface HTMLElementTagNameMap {
@@ -7,4 +7,4 @@ declare global {
   }
 }
 
-export type HeaderCardConfig = LovelaceCardConfig
+export type HeaderCardConfig = LovelaceCardConfig;

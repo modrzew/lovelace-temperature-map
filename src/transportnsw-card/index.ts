@@ -1,14 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { LitElement, html, TemplateResult, css, CSSResultGroup } from 'lit';
+import { LitElement, html, type TemplateResult, css, type CSSResultGroup } from 'lit';
 import { customElement, property, state } from 'lit/decorators';
 import { format, parseISO } from 'date-fns';
-import {
-  HomeAssistant,
-  hasAction,
-  ActionHandlerEvent,
-  handleAction,
-  getLovelace,
-} from 'custom-card-helpers';
+import { hasAction, type ActionHandlerEvent, handleAction, getLovelace } from 'custom-card-helpers';
+import type { HomeAssistant } from 'custom-card-helpers';
 import type { TransportNswCardConfig } from './types';
 import { actionHandler } from './action-handler-directive';
 import { CARD_VERSION, lineColors } from './const';
@@ -55,7 +50,7 @@ export class TransportNswCard extends LitElement {
     }
 
     if (!config.entities || config.entities.length === 0) {
-      throw new Error("You need to define an entity");
+      throw new Error('You need to define an entity');
     }
 
     this.config = config;
@@ -88,7 +83,7 @@ export class TransportNswCard extends LitElement {
 
     const times = this.config.entities.map((entity) => {
       const state = this.hass.states[entity.entity];
-      const stateStr = state ? state.state : "unavailable";
+      const stateStr = state ? state.state : 'unavailable';
       return {
         departureTime: state.attributes.departure_time,
         arrivalTime: state.attributes.arrival_time,
@@ -110,23 +105,18 @@ export class TransportNswCard extends LitElement {
           ({ departureTime, arrivalTime, due, lineName }) => html`
             <div class="entry">
               <div class="line-container">
-                <div
-                  class="line"
-                  style="background-color: ${lineColors[lineName]};"
-                >
-                  ${lineName}
-                </div>
+                <div class="line" style="background-color: ${lineColors[lineName]};">${lineName}</div>
               </div>
               <div class="time">
-                <div><em>${format(parseISO(departureTime), "HH:mm")}</em></div>
-                <div>${format(parseISO(arrivalTime), "HH:mm")} arrival</div>
+                <div><em>${format(parseISO(departureTime), 'HH:mm')}</em></div>
+                <div>${format(parseISO(arrivalTime), 'HH:mm')} arrival</div>
               </div>
               <div class="due">
                 <div class="due-number">${due}</div>
-                <div class="mins">${due === '1' ? "min" : "mins"}</div>
+                <div class="mins">${due === '1' ? 'min' : 'mins'}</div>
               </div>
             </div>
-          `
+          `,
         )}
       </ha-card>
     `;

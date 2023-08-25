@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { LitElement, html, TemplateResult, css, CSSResultGroup } from 'lit';
-import { HomeAssistant, fireEvent, LovelaceCardEditor } from 'custom-card-helpers';
+import { LitElement, html, type TemplateResult, css, type CSSResultGroup } from 'lit';
+import { type HomeAssistant, fireEvent, type LovelaceCardEditor } from 'custom-card-helpers';
 
 import { ScopedRegistryHost } from '@lit-labs/scoped-registry-mixin';
-import { HeaderCardConfig } from './types';
+import { type HeaderCardConfig } from './types';
 import { customElement, property, state } from 'lit/decorators';
 import { formfieldDefinition } from '../../elements/formfield';
 import { selectDefinition } from '../../elements/select';
@@ -73,7 +73,7 @@ export class BoilerplateCardEditor extends ScopedRegistryHost(LitElement) implem
         .configValue=${'entity'}
         .value=${this._entity}
         @selected=${this._valueChanged}
-        @closed=${(ev) => ev.stopPropagation()}
+        @closed=${(ev: any) => ev.stopPropagation()}
       >
         ${entities.map((entity) => {
           return html`<mwc-list-item .value=${entity}>${entity}</mwc-list-item>`;
@@ -113,11 +113,14 @@ export class BoilerplateCardEditor extends ScopedRegistryHost(LitElement) implem
     this._helpers = await (window as any).loadCardHelpers();
   }
 
-  private _valueChanged(ev): void {
+  private _valueChanged(ev: any): void {
     if (!this._config || !this.hass) {
       return;
     }
     const target = ev.target;
+    // TODO
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
     if (this[`_${target.configValue}`] === target.value) {
       return;
     }

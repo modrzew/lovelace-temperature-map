@@ -6,3 +6,7 @@ export const ignoreSelectFiles = [
   '@material/mwc-list/mwc-list-item.js',
   '@material/mwc-icon/mwc-icon.js',
 ];
+
+export const ignoreSwitchFiles = ['@material/mwc-ripple/mwc-ripple.js'];
+
+export const ignoreTextfieldFiles = ['@material/mwc-notched-outline/mwc-notched-outline.js'];

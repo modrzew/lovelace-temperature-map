@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { LitElement, html, TemplateResult, css, PropertyValues, CSSResultGroup } from 'lit';
+import { LitElement, html, type TemplateResult, css, type PropertyValues, type CSSResultGroup } from 'lit';
 import { customElement, property, state } from 'lit/decorators';
 import {
-  HomeAssistant,
+  type HomeAssistant,
   hasConfigOrEntityChanged,
   hasAction,
-  ActionHandlerEvent,
+  type ActionHandlerEvent,
   handleAction,
-  LovelaceCardEditor,
+  type LovelaceCardEditor,
   getLovelace,
 } from 'custom-card-helpers'; // This is a community maintained npm module with common helper functions/types. https://github.com/custom-cards/custom-card-helpers
 

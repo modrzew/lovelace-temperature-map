@@ -1,6 +1,6 @@
 export const CARD_VERSION = '1.0.0';
 
-export const lineColors = {
+export const lineColors: { [k: string]: string } = {
   T1: '#F99D1C',
   T2: '#0098CD',
   T3: '#F37021',
@@ -9,4 +9,4 @@ export const lineColors = {
   T7: '#6F818E',
   T8: '#00954C',
   T9: '#D11F2F',
-}
+};

@@ -5,9 +5,7 @@ export default function (userOptions = {}) {
   const files = userOptions.files || [];
 
   if (files.length === 0) {
-    return {
-      name: 'ignore',
-    };
+    return false;
   }
 
   return {

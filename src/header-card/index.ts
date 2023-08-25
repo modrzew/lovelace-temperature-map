@@ -1,10 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { LitElement, html, TemplateResult, css, CSSResultGroup } from 'lit';
+import { LitElement, html, type TemplateResult, css, type CSSResultGroup } from 'lit';
 import { customElement, property, state } from 'lit/decorators';
-import {
-  HomeAssistant,
-  getLovelace,
-} from 'custom-card-helpers';
+import { type HomeAssistant, getLovelace } from 'custom-card-helpers';
 import type { HeaderCardConfig } from './types';
 import { CARD_VERSION } from './const';
 import { format } from 'date-fns';

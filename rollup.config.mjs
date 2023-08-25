@@ -10,14 +10,6 @@ import minifyHTML from 'rollup-plugin-minify-html-literals';
 import summary from 'rollup-plugin-summary';
 import { ignoreTextfieldFiles, ignoreSelectFiles, ignoreSwitchFiles } from './elements/ignore/ignore.js';
 
-// Ignore the is-server because... the file isn't there? This is the error:
-// (!) Unresolved dependencies
-// https://rollupjs.org/guide/en/#warning-treating-module-as-external-dependency
-// lit-html/is-server.js (imported by node_modules/lit/index.js)
-// (!) Unused external imports
-// noChange,LitElement,html,css imported from external module "lit-html/is-server.js" but never used in "node_modules/lit/index.js"
-const ignoreLitHtmlIsServer = ['lit-html/is-server.js'];
-
 const require = createRequire(import.meta.url);
 
 const dev = process.env.ROLLUP_WATCH;
@@ -39,6 +31,7 @@ export default {
   input: 'src/custom-cards.ts',
   output: {
     dir: 'dist',
+    generatedCode: 'es2015',
     format: 'esm',
     inlineDynamicImports: true,
   },
@@ -53,10 +46,8 @@ export default {
     ignore({
       // Ignore these Material files and use the Home Assistant instances instead
       // for distribution
-      files: [...ignoreTextfieldFiles, ...ignoreSelectFiles, ...ignoreSwitchFiles, ...ignoreLitHtmlIsServer].map(
-        (file) => require.resolve(file),
-      ),
+      files: [...ignoreTextfieldFiles, ...ignoreSelectFiles, ...ignoreSwitchFiles].map((file) => require.resolve(file)),
     }),
-    !dev && summary(),
+    !dev && summary({ showGzippedSize: true }),
   ],
 };

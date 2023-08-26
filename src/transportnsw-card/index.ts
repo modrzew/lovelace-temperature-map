@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { LitElement, html, type TemplateResult, css, type CSSResultGroup } from 'lit';
 import { customElement, property, state } from 'lit/decorators';
-import { format, parseISO } from 'date-fns';
 import { hasAction, type ActionHandlerEvent, handleAction, getLovelace } from 'custom-card-helpers';
 import type { HomeAssistant } from 'custom-card-helpers';
 import type { TransportNswCardConfig } from './types';
 import { actionHandler } from './action-handler-directive';
 import { CARD_VERSION, lineColors } from './const';
+import dayjs from 'dayjs';
 
 /* eslint no-console: 0 */
 console.info(
@@ -108,8 +108,8 @@ export class TransportNswCard extends LitElement {
                 <div class="line" style="background-color: ${lineColors[lineName]};">${lineName}</div>
               </div>
               <div class="time">
-                <div><em>${format(parseISO(departureTime), 'HH:mm')}</em></div>
-                <div>${format(parseISO(arrivalTime), 'HH:mm')} arrival</div>
+                <div><em>${dayjs(departureTime).format('HH:mm')}</em></div>
+                <div>${dayjs(arrivalTime).format('HH:mm')} arrival</div>
               </div>
               <div class="due">
                 <div class="due-number">${due}</div>

@@ -163,7 +163,7 @@ class ActionHandler extends HTMLElement implements ActionHandlerInterface {
 }
 
 // TODO You need to replace all instances of "action-handler-boilerplate" with "action-handler-<your card name>"
-customElements.define('action-handler-boilerplate', ActionHandler);
+customElements.define('action-handler-transportnsw', ActionHandler);
 
 const getActionHandler = (): ActionHandler => {
   const body = document.body;

@@ -4,7 +4,10 @@ import { customElement, property, state } from 'lit/decorators';
 import { type HomeAssistant, getLovelace } from 'custom-card-helpers';
 import type { HeaderCardConfig } from './types';
 import { CARD_VERSION } from './const';
-import { format } from 'date-fns';
+import dayjs from 'dayjs';
+import advancedFormat from 'dayjs/plugin/advancedFormat';
+
+dayjs.extend(advancedFormat);
 
 /* eslint no-console: 0 */
 console.info(
@@ -91,8 +94,8 @@ export class HeaderCard extends LitElement {
 
     return html`
       <div class="content">
-        <h1>${format(date, 'pp')}</h1>
-        <p>${format(date, 'E, do MMM')}</p>
+        <h1>${dayjs(date).format('HH:mm:ss A')}</h1>
+        <p>${dayjs(date).format('ddd, Do MMM')}</p>
       </div>
     `;
   }

@@ -8,11 +8,13 @@ import serve from 'rollup-plugin-serve';
 import ignore from './rollup-plugins/ignore.js';
 import minifyHTML from 'rollup-plugin-minify-html-literals';
 import summary from 'rollup-plugin-summary';
+import { visualizer } from 'rollup-plugin-visualizer';
 import { ignoreTextfieldFiles, ignoreSelectFiles, ignoreSwitchFiles } from './elements/ignore/ignore.js';
 
 const require = createRequire(import.meta.url);
 
 const dev = process.env.ROLLUP_WATCH;
+const generateVisualizer = process.env.VISUALIZE;
 
 const serveOpts = {
   contentBase: ['./dist'],
@@ -49,5 +51,9 @@ export default {
       files: [...ignoreTextfieldFiles, ...ignoreSelectFiles, ...ignoreSwitchFiles].map((file) => require.resolve(file)),
     }),
     !dev && summary({ showGzippedSize: true }),
+    generateVisualizer &&
+      visualizer({
+        filename: 'dist/stats.html',
+      }),
   ],
 };

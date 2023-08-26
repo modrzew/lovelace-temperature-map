@@ -7,5 +7,5 @@ module.exports = {
       },
     ],
   ],
-  branches: ['main'],
+  branches: ['+([0-9])?(.{+([0-9]),x}).x'],
 };

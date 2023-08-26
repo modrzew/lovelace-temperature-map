@@ -1,14 +1,13 @@
 name: Release
 
-on:
-  push:
-    branches:
-      - '0.0.x'
+on: workflow_dispatch
 
 jobs:
   release:
     name: Prepare release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v3
 
@@ -25,4 +24,4 @@ jobs:
       - name: Release
         run: npx semantic-release
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

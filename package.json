@@ -1,6 +1,5 @@
 {
-  "name": "ha-custom-components",
-  "version": "0.0.1",
+  "name": "ha-custom-cards",
   "private": true,
   "description": "All my custom Home Assistant components and integrations",
   "type": "module",

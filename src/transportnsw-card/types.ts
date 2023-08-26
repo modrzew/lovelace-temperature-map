@@ -14,7 +14,7 @@ declare global {
 
 export interface TransportNswCardConfig extends LovelaceCardConfig {
   type: string;
-  entities: { entity: string }[];
+  entity: string;
   name?: string;
   show_warning?: boolean;
   show_error?: boolean;

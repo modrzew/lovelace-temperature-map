@@ -31,16 +31,11 @@ export class TransportNswCard extends LitElement {
   //   return document.createElement('boilerplate-card-editor');
   // }
 
-  public static getStubConfig(): Record<string, unknown> {
-    return {};
-  }
-
   @property({ attribute: false }) public hass!: HomeAssistant;
   @state() private config!: TransportNswCardConfig;
 
   // https://lit.dev/docs/components/properties/#accessors-custom
   public setConfig(config: TransportNswCardConfig): void {
-    // TODO Check for required fields and that they are of the proper format
     if (!config) {
       throw new Error('Invalid configuration');
     }
@@ -49,17 +44,11 @@ export class TransportNswCard extends LitElement {
       getLovelace().setEditMode(true);
     }
 
-    if (!config.entities || config.entities.length === 0) {
+    if (!config.entity) {
       throw new Error('You need to define an entity');
     }
 
     this.config = config;
-  }
-
-  // The height of your card. Home Assistant uses this to automatically
-  // distribute all cards over the available columns.
-  getCardSize(): number {
-    return 3;
   }
 
   // https://lit.dev/docs/components/rendering/
@@ -80,17 +69,12 @@ export class TransportNswCard extends LitElement {
     // const name =
     //   this.hass.states[this.config.entities[0].entity]?.attributes
     //     .friendly_name;
-
-    const times = this.config.entities.map((entity) => {
-      const state = this.hass.states[entity.entity];
-      const stateStr = state ? state.state : 'unavailable';
-      return {
-        departureTime: state.attributes.departure_time,
-        arrivalTime: state.attributes.arrival_time,
-        due: stateStr,
-        lineName: state.attributes.origin_line_name_short,
-      };
-    });
+    const state = this.hass.states[this.config.entity];
+    const stateStr = state ? state.state : 'unavailable';
+    const departureTime = state.attributes.departure_time;
+    const arrivalTime = state.attributes.arrival_time;
+    const due = stateStr;
+    const lineName = state.attributes.origin_line_name_short;
 
     return html`
       <ha-card
@@ -101,23 +85,19 @@ export class TransportNswCard extends LitElement {
           hasDoubleClick: hasAction(this.config.double_tap_action),
         })}
       >
-        ${times.map(
-          ({ departureTime, arrivalTime, due, lineName }) => html`
-            <div class="entry">
-              <div class="line-container">
-                <div class="line" style="background-color: ${lineColors[lineName]};">${lineName}</div>
-              </div>
-              <div class="time">
-                <div><em>${dayjs(departureTime).format('HH:mm')}</em></div>
-                <div>${dayjs(arrivalTime).format('HH:mm')} arrival</div>
-              </div>
-              <div class="due">
-                <div class="due-number">${due}</div>
-                <div class="mins">${due === '1' ? 'min' : 'mins'}</div>
-              </div>
-            </div>
-          `,
-        )}
+        <div class="entry">
+          <div class="line-container">
+            <div class="line" style="background-color: ${lineColors[lineName]};">${lineName}</div>
+          </div>
+          <div class="time">
+            <div><em>${dayjs(departureTime).format('HH:mm')}</em></div>
+            <div>${dayjs(arrivalTime).format('HH:mm')} arrival</div>
+          </div>
+          <div class="due">
+            <div class="due-number">${due}</div>
+            <div class="mins">${due === '1' ? 'min' : 'mins'}</div>
+          </div>
+        </div>
       </ha-card>
     `;
   }
@@ -152,7 +132,7 @@ export class TransportNswCard extends LitElement {
       .entry {
         display: flex;
         align-items: center;
-        padding: 4px 24px;
+        padding: 0 24px;
         margin: 0 -8px;
       }
       .line-container {

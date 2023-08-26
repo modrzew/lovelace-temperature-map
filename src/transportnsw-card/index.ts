@@ -66,9 +66,6 @@ export class TransportNswCard extends LitElement {
       return;
     }
 
-    // const name =
-    //   this.hass.states[this.config.entities[0].entity]?.attributes
-    //     .friendly_name;
     const state = this.hass.states[this.config.entity];
     const stateStr = state ? state.state : 'unavailable';
     const departureTime = state.attributes.departure_time;

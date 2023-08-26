@@ -13,9 +13,11 @@ jobs:
 
       # Build
       - name: Build the file
+        # Use --legacy-peer-deps for the time being while we work out Rollup
+        # dep issues.
         run: |
           cd /home/runner/work/ha-custom-cards/ha-custom-cards
-          npm install
+          npm install --legacy-peer-deps
           npm run build
 
       # Upload build file to the release as an asset.

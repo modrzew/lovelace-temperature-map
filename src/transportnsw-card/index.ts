@@ -87,7 +87,7 @@ export class TransportNswCard extends LitElement {
             <div class="line" style="background-color: ${lineColors[lineName]};">${lineName}</div>
           </div>
           <div class="time">
-            <div><em>${dayjs(departureTime).format('HH:mm')}</em></div>
+            <div class="departure"><em>${dayjs(departureTime).format('HH:mm')}</em></div>
             <div>${dayjs(arrivalTime).format('HH:mm')} arrival</div>
           </div>
           <div class="due">
@@ -124,7 +124,7 @@ export class TransportNswCard extends LitElement {
   static get styles(): CSSResultGroup {
     return css`
       .content {
-        padding: 8px 0;
+        padding: 4px 0;
       }
       .entry {
         display: flex;
@@ -142,17 +142,18 @@ export class TransportNswCard extends LitElement {
         color: white;
         border-radius: 8px;
       }
+      .departure {
+        font-size: var(--paper-font-title_-_font-size);
+      }
       .due {
         margin-left: auto;
         padding: 0 8px;
         text-align: right;
       }
       .due-number {
-        font-size: 28px;
+        font-size: var(--paper-font-headline_-_font-size);
+        line-height: var(--paper-font-headline_-_line-height);
         font-weight: bold;
-      }
-      .mins {
-        margin-top: 2px;
       }
     `;
   }

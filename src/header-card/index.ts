@@ -94,8 +94,8 @@ export class HeaderCard extends LitElement {
 
     return html`
       <div class="content">
-        <h1>${dayjs(date).format('HH:mm:ss A')}</h1>
-        <p>${dayjs(date).format('ddd, Do MMM')}</p>
+        <h1 class="time">${dayjs(date).format('HH:mm:ss a')}</h1>
+        <div class="date">${dayjs(date).format('ddd, Do MMM')}</div>
       </div>
     `;
   }
@@ -120,6 +120,22 @@ export class HeaderCard extends LitElement {
     return css`
       .content {
         padding: 0 16px;
+      }
+
+      .time {
+        margin: 0;
+        font-size: var(--paper-font-display3_-_font-size);
+        font-weight: var(--paper-font-display3_-_font-weight);
+        line-height: var(--paper-font-display3_-_line-height);
+        letter-spacing: var(--paper-font-display3_-_letter-spacing);
+        font-feature-settings: 'ss01';
+      }
+
+      .date {
+        font-size: var(--paper-font-title_-_font-size);
+        font-weight: var(--paper-font-title_-_font-weight);
+        line-height: var(--paper-font-title_-_line-height);
+        letter-spacing: var(--paper-font-title_-_letter-spacing);
       }
     `;
   }

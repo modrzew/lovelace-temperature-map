@@ -94,7 +94,7 @@ export class HeaderCard extends LitElement {
 
     return html`
       <div class="content">
-        <h1 class="time">${dayjs(date).format('HH:mm:ss a')}</h1>
+        <h1 class="time">${dayjs(date).format('HH:mm:ss')}</h1>
         <div class="date">${dayjs(date).format('ddd, Do MMM')}</div>
       </div>
     `;

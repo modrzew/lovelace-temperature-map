@@ -129,6 +129,7 @@ export class HeaderCard extends LitElement {
         line-height: var(--paper-font-display3_-_line-height);
         letter-spacing: var(--paper-font-display3_-_letter-spacing);
         font-feature-settings: 'ss01';
+        color: #e1e1e1;
       }
 
       .date {
@@ -136,6 +137,7 @@ export class HeaderCard extends LitElement {
         font-weight: var(--paper-font-title_-_font-weight);
         line-height: var(--paper-font-title_-_line-height);
         letter-spacing: var(--paper-font-title_-_letter-spacing);
+        color: #e1e1e1;
       }
     `;
   }

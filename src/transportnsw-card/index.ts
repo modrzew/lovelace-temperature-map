@@ -68,8 +68,8 @@ export class TransportNswCard extends LitElement {
 
     const state = this.hass.states[this.config.entity];
     const stateStr = state ? state.state : 'unavailable';
-    const departureTime = state.attributes.departure_time;
-    const arrivalTime = state.attributes.arrival_time;
+    const departureTime = state.attributes.departure_time_estimated;
+    const arrivalTime = state.attributes.arrival_time_estimated;
     const due = stateStr;
     const lineName = state.attributes.origin_line_name_short;
 

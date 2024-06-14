@@ -4,7 +4,7 @@ import { type HomeAssistant, fireEvent, type LovelaceCardEditor } from 'custom-c
 
 import { ScopedRegistryHost } from '@lit-labs/scoped-registry-mixin';
 import { type HeaderCardConfig } from './types';
-import { customElement, property, state } from 'lit/decorators';
+import { customElement, property, state } from 'lit/decorators.js';
 import { formfieldDefinition } from '../../elements/formfield';
 import { selectDefinition } from '../../elements/select';
 import { switchDefinition } from '../../elements/switch';

@@ -11,6 +11,7 @@
   },
   "license": "UNLICENSED",
   "dependencies": {
+    "@babel/plugin-proposal-decorators": "^7.24.7",
     "@lit-labs/scoped-registry-mixin": "^1.0.0",
     "@material/mwc-formfield": "^0.25.3",
     "@material/mwc-list": "^0.25.3",
@@ -22,7 +23,8 @@
     "@material/mwc-textfield": "^0.25.3",
     "custom-card-helpers": "^1.7.2",
     "dayjs": "^1.11.9",
-    "lit": "^2.8.0"
+    "lit": "^2.8.0",
+    "preact": "^10.22.0"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "21",

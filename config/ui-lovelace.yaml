@@ -1,0 +1,8 @@
+resources:
+  - url: http://127.0.0.1:3000/custom-cards.js
+    type: module
+views:
+  - cards:
+      - type: custom:carousel-card
+      - type: custom:header-card
+      - type: custom:transportnsw-card

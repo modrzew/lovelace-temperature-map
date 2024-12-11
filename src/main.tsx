@@ -6,7 +6,10 @@ import { ElementType } from 'react';
 
 const rootEl = document.getElementById('root')!;
 
-const createAndDisplayCard = (cardName: string, ReactComponent: ElementType) => {
+const createAndDisplayCard = (
+  cardName: string,
+  ReactComponent: ElementType,
+) => {
   createReactCard(cardName, ReactComponent, styles);
   rootEl.appendChild(document.createElement(cardName));
 };

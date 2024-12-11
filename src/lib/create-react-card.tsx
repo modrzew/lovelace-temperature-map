@@ -26,13 +26,13 @@ export const createReactCard = (
     constructor() {
       super();
 
-      this.attachShadow({ mode: 'open' });
-      this.root = createRoot(this.shadowRoot);
+      const shadow = this.attachShadow({ mode: 'open' });
+      this.root = createRoot(shadow);
       this.render();
 
       const styleSheet = new CSSStyleSheet();
       styleSheet.replaceSync(styles);
-      this.shadowRoot!.adoptedStyleSheets = [styleSheet];
+      shadow.adoptedStyleSheets = [styleSheet];
     }
 
     // Whenever the state changes, a new `hass` object is set. Use this to
@@ -90,10 +90,18 @@ export const createReactCard = (
     getLayoutOptions() {
       // TODO: Implement this: https://developers.home-assistant.io/docs/frontend/custom-ui/custom-card/#sizing-in-sections-view
     }
+
+    disconnectedCallback() {
+      this.root.unmount();
+    }
   };
 
   customElements.define(cardName, Card);
-  console.info(`${cardName} card defined`);
+  console.info(
+    `%c${cardName} %cregistered.`,
+    'color: orange; font-weight: bold; background: black',
+    'color: white; font-weight: bold; background: dimgray',
+  );
 
   return Card;
 };

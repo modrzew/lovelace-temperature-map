@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // To sync with https://github.com/home-assistant/frontend/blob/dev/src/types.ts
+// To sync with https://github.com/home-assistant/frontend/blob/dev/src/data/lovelace_custom_cards.ts
 
 import type {
   Auth,
@@ -87,4 +88,12 @@ export interface HomeAssistant {
     value?: any,
   ): string;
   formatEntityAttributeName(stateObj: HassEntity, attribute: string): string;
+}
+
+export interface CustomCardEntry {
+  type: string;
+  name?: string;
+  description?: string;
+  preview?: boolean;
+  documentationURL?: string;
 }

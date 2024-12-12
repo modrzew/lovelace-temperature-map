@@ -3,9 +3,9 @@ import { createRoot, type Root } from 'react-dom/client';
 import { signal, Signal } from '@preact/signals-react';
 import { HomeAssistant } from './types';
 
-export type ReactCardProps = {
+export type ReactCardProps<T> = {
   hass: Signal<HomeAssistant>;
-  config: Signal<HomeAssistant['config']>;
+  config: Signal<T>;
   cardSize: Signal<number>;
 };
 
@@ -39,7 +39,6 @@ export const createReactCard = (
     // update your content.
     set hass(hass: HomeAssistant) {
       this.signals.hass.value = hass;
-      this.render();
     }
 
     render() {

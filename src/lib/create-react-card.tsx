@@ -90,10 +90,6 @@ export const createReactCard = (
     getLayoutOptions() {
       // TODO: Implement this: https://developers.home-assistant.io/docs/frontend/custom-ui/custom-card/#sizing-in-sections-view
     }
-
-    disconnectedCallback() {
-      this.root.unmount();
-    }
   };
 
   customElements.define(cardName, Card);

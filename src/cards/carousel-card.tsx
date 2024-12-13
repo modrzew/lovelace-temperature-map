@@ -43,7 +43,7 @@ export const CarouselCard = ({ config, hass }: CarouselCardProps) => {
       <CarouselContent>
         <CarouselItem>
           {element && (
-            <div
+            <div className="p-1"
               ref={(r) => {
                 r?.appendChild(element);
               }}

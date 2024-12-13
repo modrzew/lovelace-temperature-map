@@ -2,12 +2,15 @@ import {
   Carousel,
   CarouselContent,
   CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
 } from '@/components/ui/carousel';
 import { ReactCardProps } from '@/lib/create-react-card';
 import { useEffect, useState } from 'react';
 
 export type CarouselCardProps = ReactCardProps<{
   entities: any[];
+  options: any;
 }>;
 
 const loadCardHelpers = window.loadCardHelpers
@@ -39,11 +42,12 @@ export const CarouselCard = ({ config, hass }: CarouselCardProps) => {
   }, [config, hass]);
 
   return (
-    <Carousel className="mx-16">
+    <Carousel className="mx-16" opts={config.value.options}>
       <CarouselContent>
         <CarouselItem>
           {element && (
-            <div className="p-1"
+            <div
+              className="p-1"
               ref={(r) => {
                 r?.appendChild(element);
               }}
@@ -51,6 +55,8 @@ export const CarouselCard = ({ config, hass }: CarouselCardProps) => {
           )}
         </CarouselItem>
       </CarouselContent>
+      <CarouselNext />
+      <CarouselPrevious />
     </Carousel>
   );
 };

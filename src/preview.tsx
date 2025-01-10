@@ -6,6 +6,7 @@ import { ElementType } from 'react';
 import { RoomCard } from '@/cards/room-card';
 import { HomeAssistant } from './lib/types';
 
+
 const rootEl = document.getElementById('root')!;
 
 const createAndDisplayCard = (
@@ -30,7 +31,7 @@ createAndDisplayCard('carousel-card', CarouselCard, {
 } as any, carouselCardContainer);
 
 createAndDisplayCard('room-card', RoomCard, {
-  title: 'Test',
-  subtitle: 'Bla bla bla',
+  title: 'Living room',
+  subtitle: '',
   temperature: 23,
 } as any);

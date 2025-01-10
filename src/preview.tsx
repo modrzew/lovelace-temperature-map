@@ -1,7 +1,7 @@
 import { CarouselCard } from '@/cards/carousel-card';
 import { createReactCard } from '@/lib/create-react-card';
-import './index.css';
 import styles from './index.css?inline';
+import './preview.css';
 import { ElementType } from 'react';
 import { RoomCard } from '@/cards/room-card';
 import { HomeAssistant } from './lib/types';
@@ -16,7 +16,8 @@ const createAndDisplayCard = (
 ) => {
   createReactCard(cardName, ReactComponent, styles);
   const element = document.createElement(cardName);
-  element.setConfig(config);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (element as any).setConfig(config);
   parentElement.appendChild(element);
 };
 
@@ -26,10 +27,10 @@ carouselCardContainer.style.minHeight = '300px';
 createAndDisplayCard('carousel-card', CarouselCard, {
   entities: [],
   options: {},
-}, carouselCardContainer);
+} as any, carouselCardContainer);
 
 createAndDisplayCard('room-card', RoomCard, {
   title: 'Test',
   subtitle: 'Bla bla bla',
   temperature: 23,
-});
+} as any);

@@ -1,3 +1,17 @@
+# Home Assistant Custom Cards
+This project uses React.
+
+To start development, run three commands in three different terminals:
+- `pnpm dev` to start the development server and view custom cards written in preview.tsx on http://localhost:5173
+- `pnpm build -w` to build the custom cards and watch for changes for the HA compatible script build
+- `pnpm preview` to serve it on http://localhost:3000/ha-custom-cards.js
+
+Use http://localhost:3000/ha-custom-cards.js in Home Assistant to view the custom cards.
+
+
+
+# Archived
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

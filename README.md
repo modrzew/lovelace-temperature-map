@@ -9,6 +9,9 @@ To start development, run three commands in three different terminals:
 Use http://localhost:3000/ha-custom-cards.js in Home Assistant to view the custom cards.
 
 
+## References
+- https://github.com/shannonhochkins/ha-component-kit/tree/master/packages/core/src/hooks
+
 
 # Archived
 

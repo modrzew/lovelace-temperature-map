@@ -18,7 +18,7 @@ export interface HomeAssistant {
   connection: Connection;
   connected: boolean;
   states: HassEntities;
-  // entities: { [id: string]: EntityRegistryDisplayEntry };
+  entities: { [id: string]: EntityRegistryDisplayEntry };
   // devices: { [id: string]: DeviceRegistryEntry };
   // areas: { [id: string]: AreaRegistryEntry };
   // floors: { [id: string]: FloorRegistryEntry };
@@ -97,3 +97,19 @@ export interface CustomCardEntry {
   preview?: boolean;
   documentationURL?: string;
 }
+
+//github.com/home-assistant/frontend/blob/8cb44521264bade0236bee4f6e0528592f9bab3d/src/data/entity_registry.ts#L15
+export interface EntityRegistryDisplayEntry {
+  entity_id: string;
+  name?: string;
+  icon?: string;
+  device_id?: string;
+  area_id?: string;
+  labels: string[];
+  hidden?: boolean;
+  // entity_category?: EntityCategory;
+  translation_key?: string;
+  platform?: string;
+  display_precision?: number;
+}
+

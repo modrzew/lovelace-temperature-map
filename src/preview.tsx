@@ -5,6 +5,7 @@ import './preview.css';
 import { ElementType } from 'react';
 import { RoomCard } from '@/cards/room-card';
 import { HomeAssistant } from './lib/types';
+import { hass } from './mocks/hass';
 
 
 const rootEl = document.getElementById('root')!;
@@ -19,6 +20,8 @@ const createAndDisplayCard = (
   const element = document.createElement(cardName);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (element as any).setConfig(config);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (element as any).hass = hass;
   parentElement.appendChild(element);
 };
 
@@ -34,4 +37,6 @@ createAndDisplayCard('room-card', RoomCard, {
   title: 'Living room',
   subtitle: '',
   temperature: 23,
+  light_entity: 'light.fake_light_1',
+  temperature_entity: 'sensor.fake_temperature_1',
 } as any);

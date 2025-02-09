@@ -13,11 +13,14 @@ export default defineConfig({
   build: {
     sourcemap: true,
     rollupOptions: {
-      input: 'src/build.tsx',
+      input: {
+        build: 'src/build.ts',
+        dev: 'src/ha-dev.ts',
+      },
       output: {
         entryFileNames: (chunkInfo) => {
-          if (chunkInfo.name === 'main') {
-            return '[name].js';
+          if (chunkInfo.name === 'dev') {
+            return 'ha-dev.js';
           }
           return 'ha-custom-cards.js';
         },

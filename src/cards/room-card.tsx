@@ -5,7 +5,6 @@ import { type ReactCardProps } from '@/lib/create-react-card';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useEntityStateValue, useEntityState } from '@/lib/hooks/hass-hooks';
-import { useComputed } from '@preact/signals-react';
 import { useSignals } from '@preact/signals-react/runtime';
 
 interface Config {

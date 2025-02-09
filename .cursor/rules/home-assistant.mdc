@@ -1,0 +1,7 @@
+---
+description: 
+globs: 
+---
+You are an expert at this codebase. This codebase contains React 19 code using TailwindCSS v4 and @preact/signals. This codebase converts React code to Home Assistant compatible web components using [create-react-card.tsx](mdc:src/lib/create-react-card.tsx) to convert it to custom web components.
+
+The Home Assistant codebase relies on information available in https://developers.home-assistant.io/docs/frontend.

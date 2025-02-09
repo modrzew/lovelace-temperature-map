@@ -9,7 +9,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { useEntityStateValue, useEntityState } from '@/lib/hooks/hass-hooks';
 import { useSignals } from '@preact/signals-react/runtime';
-import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 interface Config {
   title: string;
@@ -36,39 +35,37 @@ export const RoomCard = ({ hass, config }: ReactCardProps<Config>) => {
   // console.log(hass.value.entities[currentConfig.light_entity])
 
   return (
-    <AspectRatio ratio={1/0.5}>
-      <Card
-        className="bg-cover bg-center h-full"
-        style={{ backgroundImage: `url(${backgroundImage})` }}
-      >
-        <div className="bg-white/70 h-full flex flex-col">
-          <CardHeader>
-            <CardTitle>{currentConfig.title}</CardTitle>
-            <CardDescription>{currentConfig.subtitle}</CardDescription>
-          </CardHeader>
-          <CardContent className="mt-auto">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center">
-                <span className="text-lg">{temperatureState.value}°</span>
-              </div>
-
-              <Button size="icon-lg" aria-label="Power">
-                <ha-state-icon
-                  hass={hass.value}
-                  stateObj={lightState.value}
-                ></ha-state-icon>
-              </Button>
-
-              <Button size="icon-lg" aria-label="Blinds">
-                <ha-state-icon
-                  hass={hass.value}
-                  stateObj={blindsState.value}
-                ></ha-state-icon>
-              </Button>
+    <Card
+      className="bg-cover bg-center shadow-md h-full"
+      style={{ backgroundImage: `url(${backgroundImage})` }}
+    >
+      <div className="bg-white/70 flex flex-col h-full">
+        <CardHeader>
+          <CardTitle>{currentConfig.title}</CardTitle>
+          <CardDescription>{currentConfig.subtitle}</CardDescription>
+        </CardHeader>
+        <CardContent className="mt-auto">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center">
+              <span className="text-lg">{temperatureState.value}°</span>
             </div>
-          </CardContent>
-        </div>
-      </Card>
-    </AspectRatio>
+
+            <Button size="icon-lg" aria-label="Power">
+              <ha-state-icon
+                hass={hass.value}
+                stateObj={lightState.value}
+              ></ha-state-icon>
+            </Button>
+
+            <Button size="icon-lg" aria-label="Blinds">
+              <ha-state-icon
+                hass={hass.value}
+                stateObj={blindsState.value}
+              ></ha-state-icon>
+            </Button>
+          </div>
+        </CardContent>
+      </div>
+    </Card>
   );
 };

@@ -36,10 +36,10 @@ export const RoomCard = ({ hass, config }: ReactCardProps<Config>) => {
 
   return (
     <Card
-      className="bg-cover bg-center shadow-md h-full"
+      className="bg-cover bg-center h-full overflow-hidden"
       style={{ backgroundImage: `url(${backgroundImage})` }}
     >
-      <div className="bg-white/70 flex flex-col h-full">
+      <div className="flex flex-col h-full shadow-2xl bg-muted/80">
         <CardHeader>
           <CardTitle>{currentConfig.title}</CardTitle>
           <CardDescription>{currentConfig.subtitle}</CardDescription>

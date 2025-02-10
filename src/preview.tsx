@@ -7,6 +7,8 @@ import { RoomCard } from '@/cards/room-card';
 import { HomeAssistant } from './lib/types';
 import { hass } from './mocks/hass';
 
+const styleSheet = new CSSStyleSheet();
+styleSheet.replaceSync(styles);
 
 const rootEl = document.getElementById('root')!;
 
@@ -16,7 +18,7 @@ const createAndDisplayCard = (
   config?: HomeAssistant['config'],
   parentElement: HTMLElement = rootEl,
 ) => {
-  createReactCard(cardName, ReactComponent, styles);
+  createReactCard(cardName, ReactComponent, styleSheet);
   const element = document.createElement(cardName);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (element as any).setConfig(config);

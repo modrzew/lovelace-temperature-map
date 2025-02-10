@@ -12,7 +12,7 @@ export type ReactCardProps<T> = {
 export const createReactCard = (
   cardName: string,
   ReactComponent: ElementType,
-  styles: string,
+  styles: CSSStyleSheet,
 ) => {
   class Card extends HTMLElement {
     root: Root;
@@ -28,11 +28,8 @@ export const createReactCard = (
 
       const shadow = this.attachShadow({ mode: 'open' });
       this.root = createRoot(shadow);
+      shadow.adoptedStyleSheets = [styles];
       this.render();
-
-      const styleSheet = new CSSStyleSheet();
-      styleSheet.replaceSync(styles);
-      shadow.adoptedStyleSheets = [styleSheet];
     }
 
     // Whenever the state changes, a new `hass` object is set. Use this to

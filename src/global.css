@@ -1,0 +1,7 @@
+/* This file is a hack because @property properties don't work inside an adopted
+  stylesheet. See https://github.com/tailwindlabs/tailwindcss/issues/15799#issuecomment-2614123880
+  for validation.
+  This file imports the tailwindcss utilities.css file and applies it to the
+  global scope so we can bring some of those @property properties back.
+*/
+@import "tailwindcss/utilities.css" layer(utilities);

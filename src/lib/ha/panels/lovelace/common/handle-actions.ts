@@ -1,5 +1,5 @@
 import { fireEvent } from "../../../common/dom/fire_event";
-import { ActionConfig } from "../../../data/lovelace";
+import { ActionConfig, ActionHandlerDetail } from "../../../data/lovelace";
 import { HomeAssistant } from "../../../types";
 
 export type ActionConfigParams = {
@@ -14,7 +14,7 @@ export const handleAction = async (
   node: HTMLElement,
   _hass: HomeAssistant,
   config: ActionConfigParams,
-  action: string
+  action: ActionHandlerDetail['action']
 ): Promise<void> => {
   fireEvent(node, "hass-action", { config, action });
 };

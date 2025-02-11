@@ -9,6 +9,11 @@ export default defineConfig({
     }),
     tailwindcss(),
   ],
+  server: {
+    cors: {
+      origin: /^https?:\/\/(?:(?:[^:]+\.)?localhost|127\.0\.0\.1|\[::1\]|192\.168\.1\.37)(?::\d+)?$/,
+    },
+  },
   preview: {
     port: 3000,
     strictPort: true,

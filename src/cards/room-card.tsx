@@ -7,7 +7,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useEntityStateValue, useEntityState } from '@/lib/hooks/hass-hooks';
+import { useEntityStateValue, useEntityState, useEntityAttributeValue } from '@/lib/hooks/hass-hooks';
 import { handleAction } from '@/lib/ha/panels/lovelace/common/handle-actions';
 import { useRef } from 'react';
 import { HomeAssistant } from '@/lib/ha/types';
@@ -28,6 +28,7 @@ export const RoomCard = ({ hass, config }: ReactCardProps<Config>) => {
 
   const currentConfig = config.value;
   const lightState = useEntityState(hass, currentConfig.light_entity);
+  const lightColorState = useEntityAttributeValue(hass, currentConfig.light_entity, 'rgb_color');
   const temperatureState = useEntityStateValue(
     hass,
     currentConfig.temperature_entity,
@@ -68,29 +69,37 @@ export const RoomCard = ({ hass, config }: ReactCardProps<Config>) => {
             : 'bg-muted/90 backdrop-grayscale-90 backdrop-blur-xs text-muted-foreground',
         )}
       >
-        <CardHeader>
-          <Button
-            size="icon-lg"
-            aria-label="Lights"
-            onClick={handleLightAction}
-            variant={
-              lightState.value?.state === 'on' ? 'default' : 'ghostOutline'
-            }
-          >
-            <ha-state-icon
-              hass={hass.value}
-              stateObj={lightState.value}
-            ></ha-state-icon>
-          </Button>
-          <CardTitle>{currentConfig.title}</CardTitle>
-          <CardDescription>{currentConfig.subtitle}</CardDescription>
+        <CardHeader className="flex gap-3 flex-row">
+          <div className="flex-auto flex flex-col space-y-3">
+            <Button
+              size="icon-lg"
+              aria-label="Lights"
+              onClick={handleLightAction}
+              variant={
+                lightState.value?.state === 'on' ? 'default' : 'ghostOutline'
+              }
+              className={cn(
+                'drop-shadow-md transition-shadow',
+                lightState.value?.state === 'on'
+                  ? 'shadow-[0_0_48px_20px_rgba(0,0,0,0.3)] shadow-yellow-300'
+                  : '',
+              )}
+              style={{ "--tw-shadow-color": `rgb(${lightColorState.value})` }}
+            >
+              <ha-state-icon
+                hass={hass.value}
+                stateObj={lightState.value}
+              ></ha-state-icon>
+            </Button>
+            <CardTitle>{currentConfig.title}</CardTitle>
+            <CardDescription>{currentConfig.subtitle}</CardDescription>
+          </div>
+          <div className="flex-none text-2xl font-medium tracking-tight">
+            {temperatureState.value}
+          </div>
         </CardHeader>
         <CardContent className="mt-auto">
           <div className="flex items-center gap-3">
-            <div className="flex items-center">
-              <span className="text-lg">{temperatureState.value}</span>
-            </div>
-
             <Button size="icon-lg" aria-label="Blinds">
               <ha-state-icon
                 hass={hass.value}

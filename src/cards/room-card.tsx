@@ -24,7 +24,7 @@ interface Config {
 
 export const RoomCard = ({ hass, config }: ReactCardProps<Config>) => {
   useSignals();
-  const buttonRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const currentConfig = config.value;
   const lightState = useEntityState(hass, currentConfig.light_entity);
@@ -40,7 +40,7 @@ export const RoomCard = ({ hass, config }: ReactCardProps<Config>) => {
 
   const handleLightAction = () => {
     handleAction(
-      buttonRef.current!,
+      cardRef.current!,
       hass.value as unknown as HomeAssistant,
       {
         entity: currentConfig.light_entity,
@@ -55,11 +55,20 @@ export const RoomCard = ({ hass, config }: ReactCardProps<Config>) => {
     );
   };
 
+  const handleBlindsAction = () => {
+    handleAction(
+      cardRef.current!,
+      hass.value as unknown as HomeAssistant,
+      { entity: currentConfig.blinds_entity, tap_action: { action: 'toggle' } },
+      'tap',
+    );
+  };
+
   return (
     <Card
       className="bg-cover bg-center h-full overflow-hidden relative"
       style={{ backgroundImage: `url(${backgroundImage})` }}
-      ref={buttonRef}
+      ref={cardRef}
     >
       <div
         className={cn(
@@ -100,7 +109,7 @@ export const RoomCard = ({ hass, config }: ReactCardProps<Config>) => {
         </CardHeader>
         <CardContent className="mt-auto">
           <div className="flex items-center gap-3">
-            <Button size="icon-lg" aria-label="Blinds">
+            <Button size="icon-lg" aria-label="Blinds" onClick={handleBlindsAction}>
               <ha-state-icon
                 hass={hass.value}
                 stateObj={blindsState.value}

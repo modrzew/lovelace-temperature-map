@@ -7,6 +7,7 @@ export type ReactCardProps<T> = {
   hass: Signal<HomeAssistant>;
   config: Signal<T>;
   cardSize: Signal<number>;
+  editMode: Signal<boolean>;
 };
 
 export const createReactCard = (
@@ -21,6 +22,7 @@ export const createReactCard = (
       hass: signal({}),
       config: signal({}),
       cardSize: signal(1),
+      editMode: signal(false),
     };
 
     constructor() {
@@ -29,6 +31,7 @@ export const createReactCard = (
       const shadow = this.attachShadow({ mode: 'open' });
       this.root = createRoot(shadow);
       shadow.adoptedStyleSheets = [styles];
+
       this.render();
     }
 
@@ -36,6 +39,10 @@ export const createReactCard = (
     // update your content.
     set hass(hass: HomeAssistant) {
       this.signals.hass.value = hass;
+    }
+
+    set editMode(editMode: boolean) {
+      this.signals.editMode.value = editMode;
     }
 
     render() {
@@ -46,6 +53,7 @@ export const createReactCard = (
             hass={this.signals.hass}
             config={this.signals.config}
             cardSize={this.signals.cardSize}
+            editMode={this.signals.editMode}
           />
         </StrictMode>,
       );

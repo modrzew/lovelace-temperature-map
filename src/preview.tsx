@@ -6,6 +6,7 @@ import { ElementType } from 'react';
 import { RoomCard } from '@/cards/room-card';
 import { HomeAssistant } from './lib/types';
 import { hass } from './mocks/hass';
+import { DoorOpenCard } from './cards/door-open-card';
 
 const styleSheet = new CSSStyleSheet();
 styleSheet.replaceSync(styles);
@@ -41,4 +42,8 @@ createAndDisplayCard('room-card', RoomCard, {
   temperature: 23,
   light_entity: 'light.fake_light_1',
   temperature_entity: 'sensor.fake_temperature_1',
+} as any);
+
+createAndDisplayCard('door-open-card', DoorOpenCard, {
+  entity: 'sensor.fake_door_open_1',
 } as any);

@@ -45,15 +45,50 @@ export const DoorOpenCard = ({ hass, config, editMode }: DoorOpenCardProps) => {
         createPortal(
           <div
             className={cn(
-              'absolute inset-y-0 left-0 w-[20%] z-1000 flex flex-col justify-center pointer-events-none bg-linear-to-r from-amber-500/40 to-transparent to-60%',
+              'absolute inset-y-0 left-0 w-[20%] z-1000 flex flex-col justify-center pointer-events-none ',
               entityState.value.state === 'unlocked' ||
                 entityState.value.state === 'unlocking' ||
                 entityState.value.state === 'locking'
-                ? 'animate-in slide-in-from-left duration-500 ease-out fill-mode-both text-amber-900'
-                : 'animate-out slide-out-to-left duration-750 delay-3000 ease-in fill-mode-both bg-linear-to-r from-green-500/40 to-transparent to-60% text-green-900',
+                ? 'animate-in slide-in-from-left duration-500 ease-out fill-mode-both'
+                : 'animate-out slide-out-to-left duration-500 delay-3000 ease-in fill-mode-both',
             )}
           >
-            <div className="text-xl font-bold max-w-[80px] px-3 font-stretch-105%">
+            <div
+              className={cn(
+                'absolute inset-0 transition-all backdrop-blur-xs bg-linear-to-r from-amber-500/40 to-transparent to-60%',
+                entityState.value.state === 'unlocked' ||
+                  entityState.value.state === 'unlocking' ||
+                  entityState.value.state === 'locking'
+                  ? 'opacity-100'
+                  : 'opacity-0',
+              )}
+              style={{
+                mask: 'linear-gradient(to right, black, transparent 80%)',
+              }}
+            />
+            <div
+              className={cn(
+                'absolute inset-0 transition-all backdrop-blur-xs bg-linear-to-r from-green-500/40 to-transparent to-60%',
+                entityState.value.state === 'unlocked' ||
+                  entityState.value.state === 'unlocking' ||
+                  entityState.value.state === 'locking'
+                  ? 'opacity-0'
+                  : 'opacity-100',
+              )}
+              style={{
+                mask: 'linear-gradient(to right, black, transparent 80%)',
+              }}
+            />
+            <div
+              className={cn(
+                'relative z-10 text-xl font-semibold max-w-[80px] px-3 transition-all',
+                entityState.value.state === 'unlocked' ||
+                  entityState.value.state === 'unlocking' ||
+                  entityState.value.state === 'locking'
+                  ? 'text-amber-900'
+                  : 'text-green-900',
+              )}
+            >
               {getText()}
             </div>
           </div>,

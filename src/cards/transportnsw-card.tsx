@@ -96,7 +96,7 @@ const TransportInfo = ({
     transportName.value === 'BUS' ? busColor : trainLineColors[lineName.value];
 
   return (
-    <div className="@container flex items-center space-x-4 px-3 py-2">
+    <div className="@container flex items-center gap-4 px-3 py-2">
       <div
         className="inline-block px-3 py-2 text-bold text-white rounded-sm"
         style={{ backgroundColor: color }}

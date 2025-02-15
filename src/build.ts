@@ -4,11 +4,17 @@ import { DoorOpenCard } from '@/cards/door-open-card';
 import { TransportNSWCard } from '@/cards/transportnsw-card';
 import { HeaderCard } from '@/cards/header-card';
 import { createReactCard } from '@/lib/create-react-card';
-import './global.css';
+import globalStyles from './global.css?inline';
 import styles from './index.css?inline';
+
+const globalStyleEl = document.createElement('style');
+globalStyleEl.textContent = globalStyles;
+document.head.appendChild(globalStyleEl);
 
 const styleSheet = new CSSStyleSheet();
 styleSheet.replaceSync(styles);
+
+console.log(styles);
 
 document.body.style.position = 'relative';
 

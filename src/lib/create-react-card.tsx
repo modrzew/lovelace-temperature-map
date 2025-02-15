@@ -101,12 +101,16 @@ export const createReactCard = (
     }
   };
 
-  customElements.define(cardName, Card);
-  console.info(
-    `%c${cardName} %cregistered.`,
-    'color: orange; font-weight: bold; background: black',
-    'color: white; font-weight: bold; background: dimgray',
-  );
+  try {
+    customElements.define(cardName, Card);
+    console.info(
+      `%c${cardName} %cregistered.`,
+      'color: orange; font-weight: bold; background: black',
+      'color: white; font-weight: bold; background: dimgray',
+    );
+  } catch (error) {
+    console.error(error);
+  }
 
   return Card;
 };

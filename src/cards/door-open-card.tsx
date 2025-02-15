@@ -49,8 +49,8 @@ export const DoorOpenCard = ({ hass, config, editMode }: DoorOpenCardProps) => {
               entityState.value.state === 'unlocked' ||
                 entityState.value.state === 'unlocking' ||
                 entityState.value.state === 'locking'
-                ? 'animate-in slide-in-from-left duration-500 fill-mode-both  text-amber-900'
-                : 'animate-out slide-out-to-left duration-500 delay-2000 fill-mode-both bg-linear-to-r from-green-500/40 to-transparent to-60% text-green-900',
+                ? 'animate-in slide-in-from-left duration-500 ease-out fill-mode-both text-amber-900'
+                : 'animate-out slide-out-to-left duration-750 delay-3000 ease-in fill-mode-both bg-linear-to-r from-green-500/40 to-transparent to-60% text-green-900',
             )}
           >
             <div className="text-xl font-bold max-w-[80px] px-3 font-stretch-105%">

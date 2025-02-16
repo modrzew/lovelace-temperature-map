@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ReactCardProps } from '@/lib/create-react-card';
+import { handleAction } from '@/lib/ha/panels/lovelace/common/handle-actions';
 import {
   useEntityAttributeValue,
   useEntityState,
@@ -8,6 +9,7 @@ import { HomeAssistant } from '@/lib/types';
 import { Signal } from '@preact/signals-react';
 import { useSignals } from '@preact/signals-react/runtime';
 import { parse } from 'date-fns';
+import { useRef } from 'react';
 
 type TransportNSWCardProps = ReactCardProps<{
   title: string;
@@ -60,6 +62,7 @@ const TransportInfo = ({
   hass: Signal<HomeAssistant>;
   entity: string;
 }) => {
+  const rootRef = useRef<HTMLButtonElement>(null);
   const state = useEntityState(hass, entity);
   const due = state.value ? state.value.state : 'unavailable';
   const departureTime = useEntityAttributeValue(
@@ -85,6 +88,15 @@ const TransportInfo = ({
     'origin_transport_name',
   );
 
+  const handleTapAction = () => {
+    handleAction(
+      rootRef.current!,
+      hass.value as unknown as HomeAssistant,
+      { entity, tap_action: { action: 'more-info' } },
+      'tap',
+    );
+  };
+
   const departureTimeFormatted = timeFormatter.format(
     parse(departureTime.value, 'HH:mm:ss', new Date()),
   );
@@ -96,7 +108,11 @@ const TransportInfo = ({
     transportName.value === 'BUS' ? busColor : trainLineColors[lineName.value];
 
   return (
-    <div className="@container flex items-center gap-4 px-3 py-2">
+    <button
+      className="@container flex items-center gap-4 px-3 py-2 w-full text-left"
+      ref={rootRef}
+      onClick={handleTapAction}
+    >
       <div
         className="inline-block px-3 py-2 text-bold text-white rounded-sm"
         style={{ backgroundColor: color }}
@@ -113,6 +129,6 @@ const TransportInfo = ({
         <div className="text-2xl font-bold">{due}</div>
         <div className="text-sm">{due === '1' ? 'min' : 'mins'}</div>
       </div>
-    </div>
+    </button>
   );
 };

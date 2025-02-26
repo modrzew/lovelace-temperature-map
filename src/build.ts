@@ -14,8 +14,6 @@ document.head.appendChild(globalStyleEl);
 const styleSheet = new CSSStyleSheet();
 styleSheet.replaceSync(styles);
 
-console.log(styles);
-
 document.body.style.position = 'relative';
 
 createReactCard('carousel-card', CarouselCard, styleSheet);

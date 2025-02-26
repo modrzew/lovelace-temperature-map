@@ -32,11 +32,11 @@ export const DoorOpenCard = ({ hass, config, editMode }: DoorOpenCardProps) => {
   return (
     <>
       {editMode.value && (
-        <div className="w-full h-full border border-dashed bg-gray-50 rounded-md p-4 flex flex-col items-center justify-center">
-          <div className="text-lg font-medium text-gray-500">
+        <div className="w-full h-full border border-dashed bg-muted rounded-md p-4 flex flex-col items-center justify-center">
+          <div className="text-lg font-medium text-muted-foreground">
             Door Open Card
           </div>
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-muted-foreground">
             State: {entityStateValue.value}
           </div>
         </div>
@@ -55,7 +55,7 @@ export const DoorOpenCard = ({ hass, config, editMode }: DoorOpenCardProps) => {
           >
             <div
               className={cn(
-                'absolute inset-0 transition-all backdrop-blur-xs bg-linear-to-r from-amber-500/40 to-transparent to-60%',
+                'absolute inset-0 transition-all backdrop-blur-xs bg-linear-to-r from-warning/40 to-transparent to-60%',
                 entityState.value.state === 'unlocked' ||
                   entityState.value.state === 'unlocking' ||
                   entityState.value.state === 'locking'
@@ -68,7 +68,7 @@ export const DoorOpenCard = ({ hass, config, editMode }: DoorOpenCardProps) => {
             />
             <div
               className={cn(
-                'absolute inset-0 transition-all backdrop-blur-xs bg-linear-to-r from-green-500/40 to-transparent to-60%',
+                'absolute inset-0 transition-all backdrop-blur-xs bg-linear-to-r from-success/40 to-transparent to-60%',
                 entityState.value.state === 'unlocked' ||
                   entityState.value.state === 'unlocking' ||
                   entityState.value.state === 'locking'
@@ -85,8 +85,8 @@ export const DoorOpenCard = ({ hass, config, editMode }: DoorOpenCardProps) => {
                 entityState.value.state === 'unlocked' ||
                   entityState.value.state === 'unlocking' ||
                   entityState.value.state === 'locking'
-                  ? 'text-amber-900'
-                  : 'text-green-900',
+                  ? 'text-warning'
+                  : 'text-success',
               )}
             >
               {getText()}

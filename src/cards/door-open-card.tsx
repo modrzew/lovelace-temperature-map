@@ -45,7 +45,7 @@ export const DoorOpenCard = ({ hass, config, editMode }: DoorOpenCardProps) => {
         createPortal(
           <div
             className={cn(
-              'absolute inset-y-0 left-0 w-[20%] z-1000 flex flex-col justify-center pointer-events-none ',
+              'fixed inset-y-0 left-0 w-[20%] z-1000 flex flex-col justify-center pointer-events-none ',
               entityState.value.state === 'unlocked' ||
                 entityState.value.state === 'unlocking' ||
                 entityState.value.state === 'locking'

@@ -1,3 +1,5 @@
+import { ReactCardProps } from '@/lib/create-react-card';
+import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 
 const timeFormatter = new Intl.DateTimeFormat('en-AU', {
@@ -12,17 +14,32 @@ const dateFormatter = new Intl.DateTimeFormat('en-AU', {
   day: 'numeric',
 });
 
-export const HeaderCard = () => {
+export type HeaderCardProps = ReactCardProps<{
+  color: 'light' | 'dark' | 'auto';
+}>;
+
+export const HeaderCard = ({ config }: HeaderCardProps) => {
+  const currentConfig = config.value;
   const currentTime = useCurrentTime();
 
   return (
-    <div className="p-4">
-      <div className="text-3xl" style={{ fontFeatureSettings: '"ss01" on' }}>{timeFormatter.format(currentTime)}</div>
+    <div
+      className={cn(
+        'p-4',
+        currentConfig.color === 'light'
+          ? 'text-white'
+          : currentConfig.color === 'dark'
+          ? 'text-black'
+          : '',
+      )}
+    >
+      <div className="text-3xl font-medium" style={{ fontFeatureSettings: '"ss01" on' }}>
+        {timeFormatter.format(currentTime)}
+      </div>
       <div className="text-xl">{dateFormatter.format(currentTime)}</div>
     </div>
   );
 };
-
 
 const useCurrentTime = () => {
   const [currentTime, setCurrentTime] = useState(new Date());

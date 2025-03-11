@@ -91,14 +91,14 @@ export const createReactCard = (
       return this.signals.cardSize.value;
     }
 
-    getLayoutOptions() {
-      // TODO: Implement this: https://developers.home-assistant.io/docs/frontend/custom-ui/custom-card/#sizing-in-sections-view
-      return {
-        grid_rows: 2,
-        grid_columns: 2,
-        grid_min_rows: 2,
-      }
-    }
+    // TODO: Implement this: https://developers.home-assistant.io/docs/frontend/custom-ui/custom-card/#sizing-in-sections-view
+    // getLayoutOptions() {
+      // return {
+      //   grid_rows: 2,
+      //   grid_columns: 2,
+      //   grid_min_rows: 2,
+      // }
+    // }
   };
 
   try {

@@ -18,45 +18,52 @@ const loadCardHelpers = window.loadCardHelpers
   : undefined;
 
 export const CarouselCard = ({ config, hass }: CarouselCardProps) => {
-  const [element, setElement] = useState<HTMLElement | null>(null);
+  const [elements, setElements] = useState<HTMLElement[]>([]);
 
   useEffect(() => {
     const fn = async () => {
-      const element = (await loadCardHelpers).createCardElement(
-        config.value.entities[0],
-      );
-      element.hass = hass.value;
-      setElement(element);
-      element.addEventListener(
-        'll-rebuild',
-        (ev: Event) => {
-          ev.stopPropagation();
-          fn();
-        },
-        {
-          once: true,
-        },
-      );
+      const els: HTMLElement[] = [];
+      for (const entity of config.value.entities) {
+        const element = (await loadCardHelpers)?.createCardElement(entity);
+        if (element) {
+          // @ts-expect-error element.hass does exist, just wrongly typed
+          element.hass = hass.value;
+          els.push(element);
+          element.addEventListener(
+            'll-rebuild',
+            (ev: Event) => {
+              ev.stopPropagation();
+              fn();
+            },
+            {
+              once: true,
+            },
+          );
+        }
+      }
+      setElements(els);
     };
     fn();
   }, [config, hass]);
 
   return (
-    <Carousel className="mx-16" opts={config.value.options}>
+    <Carousel opts={config.value.options} className="overflow-hidden h-full flex flex-col">
       <CarouselContent>
-        <CarouselItem>
-          {element && (
+        {elements.map((element) => (
+          <CarouselItem key={element.id}>
             <div
-              className="p-1"
+              className="p-1 h-full"
               ref={(r) => {
                 r?.appendChild(element);
               }}
             />
-          )}
-        </CarouselItem>
+          </CarouselItem>
+        ))}
       </CarouselContent>
-      <CarouselNext />
-      <CarouselPrevious />
+      <div className="mt-1 space-x-2 flex">
+        <CarouselPrevious className="static translate-none flex-auto h-[24px] [&_svg]:size-5 rounded-md" />
+        <CarouselNext className="static translate-none flex-auto h-[24px] [&_svg]:size-5 rounded-md" />
+      </div>
     </Carousel>
   );
 };

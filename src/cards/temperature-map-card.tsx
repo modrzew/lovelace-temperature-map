@@ -299,8 +299,16 @@ const isPointInsideBoundary = (x: number, y: number, walls: Wall[]): boolean => 
   const minY = Math.min(...allPoints.map(p => p.y));
   const maxY = Math.max(...allPoints.map(p => p.y));
   
-  // Simple bounding box check - if outside the outer bounds, definitely outside
-  if (x < minX || x > maxX || y < minY || y > maxY) {
+  // Inset boundary slightly to account for wall thickness
+  // This prevents the off-by-one error at the boundary
+  const wallThickness = 1;
+  const insideMinX = minX + wallThickness;
+  const insideMaxX = maxX - wallThickness;
+  const insideMinY = minY + wallThickness;
+  const insideMaxY = maxY - wallThickness;
+  
+  // Check if point is inside the inset boundary
+  if (x < insideMinX || x > insideMaxX || y < insideMinY || y > insideMaxY) {
     return false;
   }
   
@@ -313,9 +321,19 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const currentConfig = config.value;
   
-  const sensorStates = currentConfig.sensors.map(sensor => ({
+  // Create individual hook calls for each sensor to avoid calling hooks in callbacks
+  const sensor1Temp = useEntityStateValue(hass, currentConfig.sensors[0]?.entity);
+  const sensor2Temp = useEntityStateValue(hass, currentConfig.sensors[1]?.entity);
+  const sensor3Temp = useEntityStateValue(hass, currentConfig.sensors[2]?.entity);
+  const sensor4Temp = useEntityStateValue(hass, currentConfig.sensors[3]?.entity);
+  const sensor5Temp = useEntityStateValue(hass, currentConfig.sensors[4]?.entity);
+  const sensor6Temp = useEntityStateValue(hass, currentConfig.sensors[5]?.entity);
+  
+  const sensorTemperatures = [sensor1Temp, sensor2Temp, sensor3Temp, sensor4Temp, sensor5Temp, sensor6Temp];
+  
+  const sensorStates = currentConfig.sensors.map((sensor, index) => ({
     ...sensor,
-    temperature: useEntityStateValue(hass, sensor.entity),
+    temperature: sensorTemperatures[index] || { value: null },
   }));
 
   const { 
@@ -354,64 +372,113 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     canvas.width = width;
     canvas.height = height;
 
+    // Show loading placeholder
+    ctx.fillStyle = '#f5f5f5';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#666';
+    ctx.font = '16px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Calculating temperature map...', width / 2, height / 2);
+
+    // Progressive calculation state
     const imageData = ctx.createImageData(width, height);
     const data = imageData.data;
+    let currentRow = 0;
+    let animationId: number;
+    let isCancelled = false;
 
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const index = (y * width + x) * 4;
-        
-        if (!isPointInsideBoundary(x, y, currentConfig.walls)) {
-          // Outside boundary - make it white/transparent
-          data[index] = 255;     // Red
-          data[index + 1] = 255; // Green
-          data[index + 2] = 255; // Blue
-          data[index + 3] = 0;   // Alpha (transparent)
-        } else {
-          // Inside boundary - interpolate temperature and color
-          const temp = interpolateTemperaturePhysics(x, y, sensorData, currentConfig.walls, ambient_temp, width, height);
-          const color = temperatureToColor(temp, too_cold_temp, too_warm_temp);
+    const processChunk = () => {
+      if (isCancelled) return;
+
+      const startTime = performance.now();
+      const maxTimePerFrame = 16; // Target 60fps, allow up to 16ms per frame
+
+      // Process rows until we hit our time budget
+      while (currentRow < height && (performance.now() - startTime) < maxTimePerFrame) {
+        for (let x = 0; x < width; x++) {
+          const index = (currentRow * width + x) * 4;
           
-          const rgb = color.match(/\d+/g)?.map(Number) || [0, 0, 0];
-          
-          data[index] = rgb[0];     // Red
-          data[index + 1] = rgb[1]; // Green
-          data[index + 2] = rgb[2]; // Blue
-          data[index + 3] = 120;    // Alpha (semi-transparent)
+          if (!isPointInsideBoundary(x, currentRow, currentConfig.walls)) {
+            // Outside boundary - make it white/transparent
+            data[index] = 255;     // Red
+            data[index + 1] = 255; // Green
+            data[index + 2] = 255; // Blue
+            data[index + 3] = 0;   // Alpha (transparent)
+          } else {
+            // Inside boundary - interpolate temperature and color
+            const temp = interpolateTemperaturePhysics(x, currentRow, sensorData, currentConfig.walls, ambient_temp, width, height);
+            const color = temperatureToColor(temp, too_cold_temp, too_warm_temp);
+            
+            const rgb = color.match(/\d+/g)?.map(Number) || [0, 0, 0];
+            
+            data[index] = rgb[0];     // Red
+            data[index + 1] = rgb[1]; // Green
+            data[index + 2] = rgb[2]; // Blue
+            data[index + 3] = 120;    // Alpha (semi-transparent)
+          }
         }
+        currentRow++;
       }
-    }
 
-    ctx.putImageData(imageData, 0, 0);
+      // Update canvas with current progress
+      ctx.putImageData(imageData, 0, 0);
 
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 2;
-    currentConfig.walls.forEach(wall => {
-      ctx.beginPath();
-      ctx.moveTo(wall.x1, wall.y1);
-      ctx.lineTo(wall.x2, wall.y2);
-      ctx.stroke();
-    });
+      // Draw walls and sensors on top (so they're always visible)
+      drawOverlay(ctx, currentConfig.walls, sensorData);
 
-    sensorData.forEach(sensor => {
-      ctx.fillStyle = '#fff';
-      ctx.strokeStyle = '#333';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(sensor.x, sensor.y, 8, 0, 2 * Math.PI);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = '#333';
-      ctx.font = '12px system-ui';
-      ctx.textAlign = 'center';
-      ctx.fillText(`${sensor.temp.toFixed(1)}°`, sensor.x, sensor.y - 12);
-      
-      if (sensor.label) {
-        ctx.fillText(sensor.label, sensor.x, sensor.y + 24);
+      if (currentRow < height) {
+        // More work to do, schedule next chunk
+        animationId = requestAnimationFrame(processChunk);
       }
-    });
+    };
 
+    // Helper function to draw walls and sensors
+    const drawOverlay = (
+      context: CanvasRenderingContext2D, 
+      walls: Wall[], 
+      sensors: Array<{ x: number; y: number; temp: number; label?: string }>
+    ) => {
+      // Draw walls
+      context.strokeStyle = '#333';
+      context.lineWidth = 2;
+      walls.forEach(wall => {
+        context.beginPath();
+        context.moveTo(wall.x1, wall.y1);
+        context.lineTo(wall.x2, wall.y2);
+        context.stroke();
+      });
+
+      // Draw sensors
+      sensors.forEach(sensor => {
+        context.fillStyle = '#fff';
+        context.strokeStyle = '#333';
+        context.lineWidth = 2;
+        context.beginPath();
+        context.arc(sensor.x, sensor.y, 8, 0, 2 * Math.PI);
+        context.fill();
+        context.stroke();
+
+        context.fillStyle = '#333';
+        context.font = '12px system-ui';
+        context.textAlign = 'center';
+        context.fillText(`${sensor.temp.toFixed(1)}°`, sensor.x, sensor.y - 12);
+        
+        if (sensor.label) {
+          context.fillText(sensor.label, sensor.x, sensor.y + 24);
+        }
+      });
+    };
+
+    // Start progressive calculation
+    animationId = requestAnimationFrame(processChunk);
+
+    // Cleanup function
+    return () => {
+      isCancelled = true;
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    };
   }, [sensorData, currentConfig.walls, width, height, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp]);
 
   return (

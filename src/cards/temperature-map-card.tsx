@@ -59,9 +59,23 @@ const lineIntersectsWalls = (
   x1: number, y1: number, x2: number, y2: number,
   walls: Wall[]
 ): boolean => {
+  // Add a small tolerance to avoid thin lines around walls
+  const tolerance = 0.1;
+  
   for (const wall of walls) {
-    if (lineIntersection(x1, y1, x2, y2, wall.x1, wall.y1, wall.x2, wall.y2)) {
-      return true;
+    const intersection = lineIntersection(x1, y1, x2, y2, wall.x1, wall.y1, wall.x2, wall.y2);
+    if (intersection) {
+      // Check if intersection is truly within both line segments with tolerance
+      const t1 = Math.abs(x2 - x1) > tolerance ? (intersection.x - x1) / (x2 - x1) : 0;
+      const t2 = Math.abs(y2 - y1) > tolerance ? (intersection.y - y1) / (y2 - y1) : 0;
+      const tWall1 = Math.abs(wall.x2 - wall.x1) > tolerance ? (intersection.x - wall.x1) / (wall.x2 - wall.x1) : 0;
+      const tWall2 = Math.abs(wall.y2 - wall.y1) > tolerance ? (intersection.y - wall.y1) / (wall.y2 - wall.y1) : 0;
+      
+      // Only consider it a true intersection if both parameters are well within bounds
+      if (t1 >= tolerance && t1 <= (1 - tolerance) && 
+          tWall1 >= tolerance && tWall1 <= (1 - tolerance)) {
+        return true;
+      }
     }
   }
   return false;
@@ -224,15 +238,13 @@ const floodFillDistances = (
   }
   
   // Convert sensor coordinates to grid coordinates
-  const startGx = Math.round(sensorX / gridScale);
-  const startGy = Math.round(sensorY / gridScale);
+  const startGx = Math.max(0, Math.min(Math.round(sensorX / gridScale), gridWidth - 1));
+  const startGy = Math.max(0, Math.min(Math.round(sensorY / gridScale), gridHeight - 1));
   
   // Start flood fill from sensor position
-  if (startGx >= 0 && startGx < gridWidth && startGy >= 0 && startGy < gridHeight) {
-    distances[startGy][startGx] = 0;
-    queue.push({ x: startGx, y: startGy, distance: 0 });
-    visited.add(`${startGx},${startGy}`);
-  }
+  distances[startGy][startGx] = 0;
+  queue.push({ x: startGx, y: startGy, distance: 0 });
+  visited.add(`${startGx},${startGy}`);
   
   // Flood fill with BFS
   while (queue.length > 0) {
@@ -250,7 +262,7 @@ const floodFillDistances = (
       const newGy = current.y + dir.dy;
       const key = `${newGx},${newGy}`;
       
-      // Check bounds
+      // Check bounds - ensure we can reach all edge pixels
       if (newGx < 0 || newGx >= gridWidth || newGy < 0 || newGy >= gridHeight) continue;
       if (visited.has(key)) continue;
       
@@ -268,6 +280,48 @@ const floodFillDistances = (
           distances[newGy][newGx] = newDistance;
           queue.push({ x: newGx, y: newGy, distance: newDistance });
           visited.add(key);
+        }
+      }
+    }
+  }
+  
+  // Ensure edge pixels are properly covered by adding additional boundary propagation
+  for (let pass = 0; pass < 2; pass++) {
+    for (let y = 0; y < gridHeight; y++) {
+      for (let x = 0; x < gridWidth; x++) {
+        // If this pixel is still unreachable (Infinity), try to propagate from reachable neighbors
+        if (distances[y][x] === Infinity) {
+          let minNeighborDistance = Infinity;
+          
+          // Check all 8 neighbors
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              if (dx === 0 && dy === 0) continue;
+              
+              const nx = x + dx;
+              const ny = y + dy;
+              
+              if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight) {
+                if (distances[ny][nx] !== Infinity) {
+                  // Check if path from neighbor to current pixel is clear
+                  const actualX1 = nx * gridScale;
+                  const actualY1 = ny * gridScale;
+                  const actualX2 = x * gridScale;
+                  const actualY2 = y * gridScale;
+                  
+                  if (!lineIntersectsWalls(actualX1, actualY1, actualX2, actualY2, walls)) {
+                    const stepCost = Math.sqrt(dx * dx + dy * dy) * gridScale;
+                    const propagatedDistance = distances[ny][nx] + stepCost;
+                    minNeighborDistance = Math.min(minNeighborDistance, propagatedDistance);
+                  }
+                }
+              }
+            }
+          }
+          
+          if (minNeighborDistance !== Infinity) {
+            distances[y][x] = minNeighborDistance;
+          }
         }
       }
     }
@@ -372,19 +426,21 @@ const getInterpolatedDistance = (
   const gx = x / gridScale;
   const gy = y / gridScale;
   
-  const x1 = Math.floor(gx);
-  const y1 = Math.floor(gy);
-  const x2 = Math.min(x1 + 1, grid.width - 1);
-  const y2 = Math.min(y1 + 1, grid.height - 1);
+  // Ensure coordinates are within bounds
+  const x1 = Math.max(0, Math.min(Math.floor(gx), grid.width - 1));
+  const y1 = Math.max(0, Math.min(Math.floor(gy), grid.height - 1));
+  const x2 = Math.max(0, Math.min(x1 + 1, grid.width - 1));
+  const y2 = Math.max(0, Math.min(y1 + 1, grid.height - 1));
   
-  // Bilinear interpolation
-  const fx = gx - x1;
-  const fy = gy - y1;
+  // Clamp fractional parts to valid range
+  const fx = Math.max(0, Math.min(gx - x1, 1));
+  const fy = Math.max(0, Math.min(gy - y1, 1));
   
   const d11 = grid.distances[sensorIndex][y1]?.[x1];
   const d21 = grid.distances[sensorIndex][y1]?.[x2];
   const d12 = grid.distances[sensorIndex][y2]?.[x1];
   const d22 = grid.distances[sensorIndex][y2]?.[x2];
+  
   
   // Handle infinity values (unreachable areas)
   if (d11 === undefined || d11 === Infinity) return Infinity;
@@ -423,11 +479,11 @@ const interpolateTemperaturePhysics = (
     }
     
     // Heat diffusion with path-based distance
-    const minDistance = 10; // Minimum effective distance
+    const minDistance = 1; // Reduced minimum distance for better close-range accuracy
     const effectiveDistance = Math.max(pathDistance, minDistance);
     
-    // Exponential decay for heat diffusion
-    const decayFactor = 0.02;
+    // Much slower exponential decay for better diffusion
+    const decayFactor = 0.005; // Reduced from 0.02 for 4x longer reach
     const influence = Math.exp(-effectiveDistance * decayFactor);
     
     return {
@@ -440,18 +496,24 @@ const interpolateTemperaturePhysics = (
   
   const totalInfluence = sensorInfluences.reduce((sum, s) => sum + s.influence, 0);
   
-  if (totalInfluence < 0.001) return ambientTemp;
+  // Much lower threshold - only use ambient temp in truly unreachable areas
+  if (totalInfluence < 0.00001) return ambientTemp;
   
   // Calculate weighted temperature based on path-distance influences
   const weightedTemp = sensorInfluences.reduce((sum, s) => 
     sum + (s.temp * s.influence), 0
   ) / totalInfluence;
   
-  // Blend with ambient temperature based on total influence strength
-  const maxPossibleInfluence = 1.0;
-  const influenceFactor = Math.min(totalInfluence / maxPossibleInfluence, 1);
+  // Greatly reduce ambient temperature influence for better diffusion
+  // Only blend ambient temp when sensor influence is extremely weak
+  const influenceThreshold = 0.001; // Much lower threshold
+  if (totalInfluence < influenceThreshold) {
+    const blendFactor = totalInfluence / influenceThreshold;
+    return weightedTemp * blendFactor + ambientTemp * (1 - blendFactor);
+  }
   
-  return weightedTemp * influenceFactor + ambientTemp * (1 - influenceFactor);
+  // For areas with reasonable sensor influence, use pure weighted temperature
+  return weightedTemp;
 };
 
 const temperatureToColor = (temp: number, tooCold: number, tooWarm: number): string => {
@@ -494,7 +556,7 @@ const temperatureToColor = (temp: number, tooCold: number, tooWarm: number): str
   return `rgb(${r}, ${g}, ${b})`;
 };
 
-const isPointInsideBoundary = (x: number, y: number, walls: Wall[]): boolean => {
+const isPointInsideBoundary = (x: number, y: number, walls: Wall[], canvasWidth: number, canvasHeight: number): boolean => {
   if (walls.length === 0) return true;
   
   // Find the bounding box from all walls
@@ -508,20 +570,12 @@ const isPointInsideBoundary = (x: number, y: number, walls: Wall[]): boolean => 
   const minY = Math.min(...allPoints.map(p => p.y));
   const maxY = Math.max(...allPoints.map(p => p.y));
   
-  // Inset boundary slightly to account for wall thickness
-  // This prevents the off-by-one error at the boundary
-  const wallThickness = 1;
-  const insideMinX = minX + wallThickness;
-  const insideMaxX = maxX - wallThickness;
-  const insideMinY = minY + wallThickness;
-  const insideMaxY = maxY - wallThickness;
-  
-  // Check if point is inside the inset boundary
-  if (x < insideMinX || x > insideMaxX || y < insideMinY || y > insideMaxY) {
+  // Simple boundary check without wall thickness complications
+  // This eliminates the edge artifacts
+  if (x < minX || x > maxX || y < minY || y > maxY) {
     return false;
   }
   
-  // For now, use simple bounding box. Could be enhanced with proper polygon intersection
   return true;
 };
 
@@ -737,14 +791,14 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
             for (let x = 0; x < width; x++) {
               const index = (currentRow * width + x) * 4;
               
-              if (!isPointInsideBoundary(x, currentRow, currentConfig.walls)) {
+              if (!isPointInsideBoundary(x, currentRow, currentConfig.walls, width, height)) {
                 // Outside boundary - make it white/transparent
                 data[index] = 255;     // Red
                 data[index + 1] = 255; // Green
                 data[index + 2] = 255; // Blue
                 data[index + 3] = 0;   // Alpha (transparent)
               } else {
-                // Inside boundary - interpolate temperature and color using pre-computed grid
+                // Inside boundary - interpolate temperature and color
                 const temp = interpolateTemperaturePhysics(x, currentRow, sensorData, distanceGrid, ambient_temp);
                 const color = temperatureToColor(temp, too_cold_temp, too_warm_temp);
                 

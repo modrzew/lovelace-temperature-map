@@ -31,6 +31,7 @@ interface Config {
   ambient_temp?: number;
   show_sensor_names?: boolean;
   show_sensor_temperatures?: boolean;
+  padding?: number;
 }
 
 // Line-line intersection helper
@@ -338,17 +339,50 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     temperature: sensorTemperatures[index] || { value: null },
   }));
 
+  // Calculate canvas dimensions based on wall coordinates
+  const getCanvasDimensions = (walls: Wall[], padding: number = 50) => {
+    if (walls.length === 0) {
+      return { width: 400, height: 300 };
+    }
+    
+    // Find min/max coordinates from all walls
+    const allPoints = walls.flatMap(wall => [
+      { x: wall.x1, y: wall.y1 },
+      { x: wall.x2, y: wall.y2 }
+    ]);
+    
+    const minX = Math.min(...allPoints.map(p => p.x));
+    const maxX = Math.max(...allPoints.map(p => p.x));
+    const minY = Math.min(...allPoints.map(p => p.y));
+    const maxY = Math.max(...allPoints.map(p => p.y));
+    
+    // Calculate size with padding
+    const calculatedWidth = maxX - minX + padding * 2;
+    const calculatedHeight = maxY - minY + padding * 2;
+    
+    return {
+      width: Math.max(400, calculatedWidth),
+      height: Math.max(300, calculatedHeight)
+    };
+  };
+
   const { 
-    width = 400, 
-    height = 300, 
     min_temp = 15, 
     max_temp = 30,
     too_cold_temp = 20,
     too_warm_temp = 26,
     ambient_temp = 22,
     show_sensor_names = true,
-    show_sensor_temperatures = true
+    show_sensor_temperatures = true,
+    padding = 50
   } = currentConfig;
+
+  // Use provided dimensions or calculate from walls
+  const dimensions = currentConfig.width && currentConfig.height 
+    ? { width: currentConfig.width, height: currentConfig.height }
+    : getCanvasDimensions(currentConfig.walls, padding);
+  
+  const { width, height } = dimensions;
 
   const sensorData = useMemo(() => 
     sensorStates

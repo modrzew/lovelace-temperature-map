@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wall Layout Editor</title>
+    <script type="module" src="/src/wall-editor.tsx"></script>
+    <style>
+        body { 
+            margin: 0; 
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <div id="wall-editor-root"></div>
+    
+    <script type="module">
+        import React from 'react';
+        import { createRoot } from 'react-dom/client';
+        import WallEditor from './src/wall-editor.tsx';
+        import './src/index.css';
+        
+        const container = document.getElementById('wall-editor-root');
+        const root = createRoot(container);
+        root.render(React.createElement(WallEditor));
+    </script>
+</body>
+</html>

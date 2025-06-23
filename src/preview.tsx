@@ -8,6 +8,7 @@ import { HomeAssistant } from './lib/types';
 import { hass } from './mocks/hass';
 import { DoorOpenCard } from './cards/door-open-card';
 import { TemperatureMapCard } from './cards/temperature-map-card';
+import WallEditor from './wall-editor';
 
 const styleSheet = new CSSStyleSheet();
 styleSheet.replaceSync(styles);
@@ -75,3 +76,16 @@ createAndDisplayCard('temperature-map-card', TemperatureMapCard, {
     { entity: 'sensor.fake_temperature_4', x: 300, y: 225 }, // No label - will use entity's friendly_name
   ],
 } as any);
+
+// Add wall editor at the bottom
+const wallEditorContainer = document.createElement('div');
+wallEditorContainer.style.marginTop = '2rem';
+wallEditorContainer.style.borderTop = '2px solid #eee';
+wallEditorContainer.style.paddingTop = '2rem';
+rootEl.appendChild(wallEditorContainer);
+
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+
+const wallEditorRoot = createRoot(wallEditorContainer);
+wallEditorRoot.render(React.createElement(WallEditor));

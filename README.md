@@ -1,10 +1,29 @@
 # Home Assistant Custom Cards
 This project uses React.
 
-To start development, run three commands in three different terminals:
+To start development, run these commands:
 - `pnpm dev` to start the development server and view custom cards written in preview.tsx on http://localhost:5173
 
 Use http://localhost:5173/src/ha-dev.ts in Home Assistant to view the custom cards.
+
+## Wall Layout Editor
+
+The project includes a visual wall editor to help design temperature map layouts. It's included in the preview page:
+
+```bash
+pnpm dev
+```
+
+Then visit http://localhost:5173 and scroll down to see the wall editor below the card previews.
+
+Features:
+- Real-time visual preview of wall configurations
+- Grid reference for precise positioning
+- JavaScript syntax highlighting and error checking
+- Copy-to-clipboard for easy configuration transfer
+- Interactive canvas with wall indices for easy identification
+
+The editor helps you design the `walls` array for the temperature map card configuration.
 
 ## Releases and Versioning
 

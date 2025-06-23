@@ -222,8 +222,8 @@ const computeDistanceGridAsync = (
     return () => {}; // No cancellation needed
   }
   
-  // Use higher resolution grid for better wall alignment
-  const gridScale = 2; // Increased resolution for better wall detection
+  // Use highest resolution grid for precise wall alignment
+  const gridScale = 1; // Maximum resolution for perfect wall detection
   const gridWidth = Math.ceil(width / gridScale);
   const gridHeight = Math.ceil(height / gridScale);
   
@@ -298,7 +298,7 @@ const getInterpolatedDistance = (
   sensorIndex: number,
   grid: DistanceGrid
 ): number => {
-  const gridScale = 2; // Updated to match the new grid scale
+  const gridScale = 1; // Updated to match the new grid scale
   const gx = x / gridScale;
   const gy = y / gridScale;
   
@@ -522,7 +522,7 @@ const computeBoundaryPoints = (
   }
   
   // Use flood fill from sensor locations to determine interior areas
-  const gridScale = 4;
+  const gridScale = 1; // Use 1:1 pixel accuracy for precise boundary detection
   const gridWidth = Math.ceil(canvasWidth / gridScale);
   const gridHeight = Math.ceil(canvasHeight / gridScale);
   
@@ -592,6 +592,40 @@ const computeBoundaryPoints = (
   return boundaryPoints;
 };
 
+// Check if a point is near any wall within the given radius
+const checkWallProximity = (x: number, y: number, walls: Wall[], radius: number): boolean => {
+  for (const wall of walls) {
+    // Calculate distance from point to line segment
+    const A = x - wall.x1;
+    const B = y - wall.y1;
+    const C = wall.x2 - wall.x1;
+    const D = wall.y2 - wall.y1;
+    
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    
+    if (lenSq === 0) {
+      // Wall is a point
+      const distance = Math.sqrt(A * A + B * B);
+      if (distance <= radius) return true;
+      continue;
+    }
+    
+    let param = dot / lenSq;
+    param = Math.max(0, Math.min(1, param)); // Clamp to line segment
+    
+    const xx = wall.x1 + param * C;
+    const yy = wall.y1 + param * D;
+    
+    const dx = x - xx;
+    const dy = y - yy;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    if (distance <= radius) return true;
+  }
+  return false;
+};
+
 // Custom hook for debouncing sensor data to prevent flickering
 const useDebouncedSensorData = (sensorData: Array<{ x: number; y: number; temp: number; label: string; entity: string }>, delay: number = 2000) => {
   const [debouncedSensorData, setDebouncedSensorData] = useState(sensorData);
@@ -626,30 +660,42 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     [currentConfig.sensors, hass.value?.states]
   );
 
-  // Calculate canvas dimensions based on wall coordinates
-  const getCanvasDimensions = (walls: Wall[], padding: number = 50) => {
-    if (walls.length === 0) {
+  // Calculate canvas dimensions based on wall and sensor coordinates
+  const getCanvasDimensions = (walls: Wall[], sensors: TemperatureSensor[], padding: number = 0) => {
+    // Collect all coordinate points from walls and sensors
+    const allPoints: Array<{ x: number; y: number }> = [];
+    
+    // Add wall endpoints
+    walls.forEach(wall => {
+      allPoints.push({ x: wall.x1, y: wall.y1 });
+      allPoints.push({ x: wall.x2, y: wall.y2 });
+    });
+    
+    // Add sensor positions
+    sensors.forEach(sensor => {
+      allPoints.push({ x: sensor.x, y: sensor.y });
+    });
+    
+    if (allPoints.length === 0) {
       return { width: 400, height: 300 };
     }
-    
-    // Find min/max coordinates from all walls
-    const allPoints = walls.flatMap(wall => [
-      { x: wall.x1, y: wall.y1 },
-      { x: wall.x2, y: wall.y2 }
-    ]);
     
     const minX = Math.min(...allPoints.map(p => p.x));
     const maxX = Math.max(...allPoints.map(p => p.x));
     const minY = Math.min(...allPoints.map(p => p.y));
     const maxY = Math.max(...allPoints.map(p => p.y));
     
-    // Calculate size with padding
+    // Calculate exact size to fit content with minimal padding
     const calculatedWidth = maxX - minX + padding * 2;
     const calculatedHeight = maxY - minY + padding * 2;
     
+    // If coordinates start from 0, we need to add 1 to include the final pixel
+    const finalWidth = minX === 0 ? maxX + 1 + padding * 2 : calculatedWidth;
+    const finalHeight = minY === 0 ? maxY + 1 + padding * 2 : calculatedHeight;
+    
     return {
-      width: Math.max(400, calculatedWidth),
-      height: Math.max(300, calculatedHeight)
+      width: Math.max(100, finalWidth), // Reduced minimum size
+      height: Math.max(100, finalHeight)
     };
   };
 
@@ -661,13 +707,13 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     ambient_temp = 22,
     show_sensor_names = true,
     show_sensor_temperatures = true,
-    padding = 50
+    padding = 0
   } = currentConfig;
 
-  // Use provided dimensions or calculate from walls
+  // Use provided dimensions or calculate from walls and sensors
   const dimensions = currentConfig.width && currentConfig.height 
     ? { width: currentConfig.width, height: currentConfig.height }
-    : getCanvasDimensions(currentConfig.walls, padding);
+    : getCanvasDimensions(currentConfig.walls, currentConfig.sensors, padding);
   
   const { width, height } = dimensions;
 

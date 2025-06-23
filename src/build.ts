@@ -17,9 +17,9 @@ styleSheet.replaceSync(styles);
 
 document.body.style.position = 'relative';
 
-createReactCard('carousel-card', CarouselCard, styleSheet);
-createReactCard('room-card', RoomCard, styleSheet);
-createReactCard('door-open-card', DoorOpenCard, styleSheet);
-createReactCard('header-card', HeaderCard, styleSheet);
-createReactCard('transportnsw-card', TransportNSWCard, styleSheet);
+// createReactCard('carousel-card', CarouselCard, styleSheet);
+// createReactCard('room-card', RoomCard, styleSheet);
+// createReactCard('door-open-card', DoorOpenCard, styleSheet);
+// createReactCard('header-card', HeaderCard, styleSheet);
+// createReactCard('transportnsw-card', TransportNSWCard, styleSheet);
 createReactCard('temperature-map-card', TemperatureMapCard, styleSheet);

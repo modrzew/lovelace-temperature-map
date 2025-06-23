@@ -28,28 +28,221 @@ interface Config {
   max_temp?: number;
   too_cold_temp?: number;
   too_warm_temp?: number;
+  ambient_temp?: number;
 }
 
-const interpolateTemperature = (
+// Line-line intersection helper
+const lineIntersection = (
+  x1: number, y1: number, x2: number, y2: number,
+  x3: number, y3: number, x4: number, y4: number
+): { x: number; y: number } | null => {
+  const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+  if (Math.abs(denom) < 1e-10) return null;
+  
+  const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+  const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+  
+  if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+    return {
+      x: x1 + t * (x2 - x1),
+      y: y1 + t * (y2 - y1)
+    };
+  }
+  return null;
+};
+
+// Check if line from point A to point B intersects any wall
+const lineIntersectsWalls = (
+  x1: number, y1: number, x2: number, y2: number,
+  walls: Wall[]
+): boolean => {
+  for (const wall of walls) {
+    if (lineIntersection(x1, y1, x2, y2, wall.x1, wall.y1, wall.x2, wall.y2)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+
+// A* pathfinding implementation for realistic heat diffusion
+interface PathNode {
+  x: number;
+  y: number;
+  gScore: number;
+  fScore: number;
+  parent?: PathNode;
+}
+
+const heuristic = (a: PathNode, b: { x: number; y: number }): number => {
+  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+};
+
+const getNeighbors = (node: PathNode, walls: Wall[], width: number, height: number): PathNode[] => {
+  const neighbors: PathNode[] = [];
+  const directions = [
+    { dx: 0, dy: -1 }, { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, // Cardinal
+    { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: 1, dy: 1 }, { dx: -1, dy: 1 } // Diagonal
+  ];
+  
+  for (const dir of directions) {
+    const newX = node.x + dir.dx * 8; // Step size for performance
+    const newY = node.y + dir.dy * 8;
+    
+    if (newX >= 0 && newX < width && newY >= 0 && newY < height) {
+      // Check if this step crosses any wall
+      if (!lineIntersectsWalls(node.x, node.y, newX, newY, walls)) {
+        const stepCost = Math.sqrt(dir.dx ** 2 + dir.dy ** 2) * 8;
+        neighbors.push({
+          x: newX,
+          y: newY,
+          gScore: Infinity,
+          fScore: Infinity,
+          parent: undefined
+        });
+      }
+    }
+  }
+  
+  return neighbors;
+};
+
+const findPath = (
+  start: { x: number; y: number },
+  goal: { x: number; y: number },
+  walls: Wall[],
+  width: number,
+  height: number
+): number => {
+  // Quick direct path check first
+  if (!lineIntersectsWalls(start.x, start.y, goal.x, goal.y, walls)) {
+    return Math.sqrt((goal.x - start.x) ** 2 + (goal.y - start.y) ** 2);
+  }
+  
+  const openSet: PathNode[] = [];
+  const closedSet = new Set<string>();
+  
+  const startNode: PathNode = {
+    x: start.x,
+    y: start.y,
+    gScore: 0,
+    fScore: heuristic({ x: start.x, y: start.y, gScore: 0, fScore: 0 }, goal)
+  };
+  
+  openSet.push(startNode);
+  
+  while (openSet.length > 0) {
+    // Find node with lowest fScore
+    let current = openSet[0];
+    let currentIndex = 0;
+    
+    for (let i = 1; i < openSet.length; i++) {
+      if (openSet[i].fScore < current.fScore) {
+        current = openSet[i];
+        currentIndex = i;
+      }
+    }
+    
+    openSet.splice(currentIndex, 1);
+    const currentKey = `${current.x},${current.y}`;
+    closedSet.add(currentKey);
+    
+    // Check if we reached the goal (within tolerance)
+    const distToGoal = Math.sqrt((current.x - goal.x) ** 2 + (current.y - goal.y) ** 2);
+    if (distToGoal < 15) {
+      // Reconstruct path length
+      return current.gScore + distToGoal;
+    }
+    
+    // Explore neighbors
+    const neighbors = getNeighbors(current, walls, width, height);
+    
+    for (const neighbor of neighbors) {
+      const neighborKey = `${neighbor.x},${neighbor.y}`;
+      if (closedSet.has(neighborKey)) continue;
+      
+      const stepCost = Math.sqrt((neighbor.x - current.x) ** 2 + (neighbor.y - current.y) ** 2);
+      const tentativeGScore = current.gScore + stepCost;
+      
+      const existingNeighbor = openSet.find(n => n.x === neighbor.x && n.y === neighbor.y);
+      
+      if (!existingNeighbor) {
+        neighbor.gScore = tentativeGScore;
+        neighbor.fScore = tentativeGScore + heuristic(neighbor, goal);
+        neighbor.parent = current;
+        openSet.push(neighbor);
+      } else if (tentativeGScore < existingNeighbor.gScore) {
+        existingNeighbor.gScore = tentativeGScore;
+        existingNeighbor.fScore = tentativeGScore + heuristic(existingNeighbor, goal);
+        existingNeighbor.parent = current;
+      }
+    }
+    
+    // Limit iterations for performance
+    if (closedSet.size > 500) break;
+  }
+  
+  // No path found - return high penalty distance
+  const directDistance = Math.sqrt((goal.x - start.x) ** 2 + (goal.y - start.y) ** 2);
+  return directDistance * 5; // Heavy penalty for blocked paths
+};
+
+// Cache for pathfinding results to improve performance
+const pathCache = new Map<string, number>();
+
+// Heat diffusion using pathfinding for realistic temperature blending
+const interpolateTemperaturePhysics = (
   x: number,
   y: number,
   sensors: Array<{ x: number; y: number; temp: number }>,
+  walls: Wall[],
+  ambientTemp: number = 22,
+  width: number = 400,
+  height: number = 300
 ): number => {
-  if (sensors.length === 0) return 20;
+  if (sensors.length === 0) return ambientTemp;
   
-  const distances = sensors.map(sensor => ({
-    ...sensor,
-    distance: Math.sqrt((x - sensor.x) ** 2 + (y - sensor.y) ** 2),
-  }));
+  // Calculate actual path distances to each sensor
+  const sensorInfluences = sensors.map(sensor => {
+    // Create cache key for this path
+    const cacheKey = `${Math.round(x / 4) * 4},${Math.round(y / 4) * 4}-${sensor.x},${sensor.y}`;
+    
+    let pathDistance = pathCache.get(cacheKey);
+    if (pathDistance === undefined) {
+      pathDistance = findPath({ x, y }, sensor, walls, width, height);
+      pathCache.set(cacheKey, pathDistance);
+    }
+    
+    // Heat diffusion with path-based distance
+    const minDistance = 10; // Minimum effective distance
+    const effectiveDistance = Math.max(pathDistance, minDistance);
+    
+    // Exponential decay for heat diffusion (more realistic than inverse square for confined spaces)
+    const decayFactor = 0.02; // Controls how quickly temperature influence fades
+    const influence = Math.exp(-effectiveDistance * decayFactor);
+    
+    return {
+      ...sensor,
+      influence,
+      pathDistance,
+      effectiveDistance
+    };
+  });
   
-  const epsilon = 0.001;
-  const closeSensor = distances.find(d => d.distance < epsilon);
-  if (closeSensor) return closeSensor.temp;
+  const totalInfluence = sensorInfluences.reduce((sum, s) => sum + s.influence, 0);
   
-  const weights = distances.map(d => 1 / (d.distance ** 2));
-  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+  if (totalInfluence < 0.001) return ambientTemp;
   
-  return distances.reduce((sum, d, i) => sum + (d.temp * weights[i]), 0) / totalWeight;
+  // Calculate weighted temperature based on path-distance influences
+  const weightedTemp = sensorInfluences.reduce((sum, s) => 
+    sum + (s.temp * s.influence), 0
+  ) / totalInfluence;
+  
+  // Blend with ambient temperature based on total influence strength
+  const maxPossibleInfluence = 1.0; // When very close to a sensor
+  const influenceFactor = Math.min(totalInfluence / maxPossibleInfluence, 1);
+  
+  return weightedTemp * influenceFactor + ambientTemp * (1 - influenceFactor);
 };
 
 const temperatureToColor = (temp: number, tooCold: number, tooWarm: number): string => {
@@ -131,7 +324,8 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     min_temp = 15, 
     max_temp = 30,
     too_cold_temp = 20,
-    too_warm_temp = 26
+    too_warm_temp = 26,
+    ambient_temp = 22
   } = currentConfig;
 
   const sensorData = useMemo(() => 
@@ -154,6 +348,9 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Clear path cache when configuration changes
+    pathCache.clear();
+
     canvas.width = width;
     canvas.height = height;
 
@@ -172,7 +369,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
           data[index + 3] = 0;   // Alpha (transparent)
         } else {
           // Inside boundary - interpolate temperature and color
-          const temp = interpolateTemperature(x, y, sensorData);
+          const temp = interpolateTemperaturePhysics(x, y, sensorData, currentConfig.walls, ambient_temp, width, height);
           const color = temperatureToColor(temp, too_cold_temp, too_warm_temp);
           
           const rgb = color.match(/\d+/g)?.map(Number) || [0, 0, 0];
@@ -215,7 +412,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
       }
     });
 
-  }, [sensorData, currentConfig.walls, width, height, min_temp, max_temp, too_cold_temp, too_warm_temp]);
+  }, [sensorData, currentConfig.walls, width, height, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp]);
 
   return (
     <Card className="h-full">

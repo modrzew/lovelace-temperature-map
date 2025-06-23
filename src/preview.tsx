@@ -7,6 +7,7 @@ import { RoomCard } from '@/cards/room-card';
 import { HomeAssistant } from './lib/types';
 import { hass } from './mocks/hass';
 import { DoorOpenCard } from './cards/door-open-card';
+import { TemperatureMapCard } from './cards/temperature-map-card';
 
 const styleSheet = new CSSStyleSheet();
 styleSheet.replaceSync(styles);
@@ -46,4 +47,27 @@ createAndDisplayCard('room-card', RoomCard, {
 
 createAndDisplayCard('door-open-card', DoorOpenCard, {
   entity: 'sensor.fake_door_open_1',
+} as any);
+
+createAndDisplayCard('temperature-map-card', TemperatureMapCard, {
+  title: 'Apartment Temperature Map',
+  width: 400,
+  height: 300,
+  min_temp: 18,
+  max_temp: 28,
+  too_cold_temp: 20,
+  too_warm_temp: 26,
+  walls: [
+    { x1: 50, y1: 50, x2: 350, y2: 50 },   // Top wall
+    { x1: 350, y1: 50, x2: 350, y2: 250 }, // Right wall
+    { x1: 350, y1: 250, x2: 50, y2: 250 }, // Bottom wall
+    { x1: 50, y1: 250, x2: 50, y2: 50 },   // Left wall
+    { x1: 200, y1: 50, x2: 200, y2: 150 }, // Interior wall
+  ],
+  sensors: [
+    { entity: 'sensor.fake_temperature_1', x: 100, y: 100, label: 'Living Room' },
+    { entity: 'sensor.fake_temperature_2', x: 300, y: 100, label: 'Kitchen' },
+    { entity: 'sensor.fake_temperature_3', x: 100, y: 200, label: 'Bedroom' },
+    { entity: 'sensor.fake_temperature_4', x: 300, y: 200, label: 'Bathroom' },
+  ],
 } as any);

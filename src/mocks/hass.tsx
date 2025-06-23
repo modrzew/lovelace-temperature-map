@@ -6,15 +6,15 @@ export const hass: Partial<HomeAssistant> = {
   states: {
     ...createLight('light.fake_light_1'),
     ...createTemperatureSensor('sensor.fake_temperature_1', { 
-      state: '19.2',
+      state: '20.6',
       attributes: { friendly_name: 'Living Room Temperature', device_class: 'temperature', state_class: 'measurement' }
     }),  // Too cold
     ...createTemperatureSensor('sensor.fake_temperature_2', { 
-      state: '27.1',
+      state: '21.2',
       attributes: { friendly_name: 'Kitchen Temperature', device_class: 'temperature', state_class: 'measurement' }
     }),  // Too warm  
     ...createTemperatureSensor('sensor.fake_temperature_3', { 
-      state: '22.5',
+      state: '22.3',
       attributes: { friendly_name: 'Bedroom Temperature', device_class: 'temperature', state_class: 'measurement' }
     }),  // Comfortable
     ...createTemperatureSensor('sensor.fake_temperature_4', { 

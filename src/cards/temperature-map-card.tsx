@@ -59,19 +59,21 @@ const lineIntersectsWalls = (
   x1: number, y1: number, x2: number, y2: number,
   walls: Wall[]
 ): boolean => {
-  // Add a small tolerance to avoid thin lines around walls
-  const tolerance = 0.1;
-  
   for (const wall of walls) {
     const intersection = lineIntersection(x1, y1, x2, y2, wall.x1, wall.y1, wall.x2, wall.y2);
     if (intersection) {
-      // Check if intersection is truly within both line segments with tolerance
-      const t1 = Math.abs(x2 - x1) > tolerance ? (intersection.x - x1) / (x2 - x1) : 0;
-      const tWall1 = Math.abs(wall.x2 - wall.x1) > tolerance ? (intersection.x - wall.x1) / (wall.x2 - wall.x1) : 0;
+      // Check if intersection is within both line segments (including endpoints)
+      const t1 = Math.abs(x2 - x1) > 0.001 ? (intersection.x - x1) / (x2 - x1) : 0;
+      const t2 = Math.abs(y2 - y1) > 0.001 ? (intersection.y - y1) / (y2 - y1) : 0;
+      const tWall1 = Math.abs(wall.x2 - wall.x1) > 0.001 ? (intersection.x - wall.x1) / (wall.x2 - wall.x1) : 0;
+      const tWall2 = Math.abs(wall.y2 - wall.y1) > 0.001 ? (intersection.y - wall.y1) / (wall.y2 - wall.y1) : 0;
       
-      // Only consider it a true intersection if both parameters are well within bounds
-      if (t1 >= tolerance && t1 <= (1 - tolerance) && 
-          tWall1 >= tolerance && tWall1 <= (1 - tolerance)) {
+      // Use consistent parameter for both x and y calculations
+      const t = Math.abs(x2 - x1) > Math.abs(y2 - y1) ? t1 : t2;
+      const tWall = Math.abs(wall.x2 - wall.x1) > Math.abs(wall.y2 - wall.y1) ? tWall1 : tWall2;
+      
+      // Include endpoints in intersection detection (0 <= t <= 1)
+      if (t >= 0 && t <= 1 && tWall >= 0 && tWall <= 1) {
         return true;
       }
     }
@@ -220,8 +222,8 @@ const computeDistanceGridAsync = (
     return () => {}; // No cancellation needed
   }
   
-  // Use larger grid scale for even better performance
-  const gridScale = 8; // Increased from 4 for 4x speedup
+  // Use higher resolution grid for better wall alignment
+  const gridScale = 2; // Increased resolution for better wall detection
   const gridWidth = Math.ceil(width / gridScale);
   const gridHeight = Math.ceil(height / gridScale);
   
@@ -296,7 +298,7 @@ const getInterpolatedDistance = (
   sensorIndex: number,
   grid: DistanceGrid
 ): number => {
-  const gridScale = 8; // Updated to match the new grid scale
+  const gridScale = 2; // Updated to match the new grid scale
   const gx = x / gridScale;
   const gy = y / gridScale;
   
@@ -328,21 +330,23 @@ const getInterpolatedDistance = (
   return d1 * (1 - fy) + d2 * fy;
 };
 
-// Optimized heat diffusion using pre-computed distance grid
+// Heat diffusion that flows like water/air using flood fill distances
 const interpolateTemperaturePhysics = (
   x: number,
   y: number,
   sensors: Array<{ x: number; y: number; temp: number }>,
   distanceGrid: DistanceGrid,
-  ambientTemp: number = 22
+  ambientTemp: number = 22,
+  walls: Wall[] = []
 ): number => {
   if (sensors.length === 0) return ambientTemp;
   
-  // Calculate influences using pre-computed distances
+  // Calculate influences using flood fill distances only - no direct line checks
+  // This ensures heat flows naturally around obstacles like water or air
   const sensorInfluences = sensors.map((sensor, index) => {
     const pathDistance = getInterpolatedDistance(x, y, index, distanceGrid);
     
-    // Skip sensors that are unreachable (infinite distance)
+    // If flood fill couldn't reach this point, the sensor has no influence
     if (pathDistance === Infinity) {
       return {
         ...sensor,
@@ -352,41 +356,61 @@ const interpolateTemperaturePhysics = (
       };
     }
     
-    // Heat diffusion with path-based distance
-    const minDistance = 1; // Reduced minimum distance for better close-range accuracy
+    // Sensor dominance radius - within this distance, use exact sensor temperature
+    const dominanceRadius = 12; // Reduced for more natural blending
+    if (pathDistance <= dominanceRadius) {
+      return {
+        ...sensor,
+        influence: 100, // High but not overwhelming influence
+        pathDistance,
+        effectiveDistance: pathDistance
+      };
+    }
+    
+    // Natural heat diffusion with gentler decay to allow flow-like spreading
+    const minDistance = 1;
     const effectiveDistance = Math.max(pathDistance, minDistance);
     
-    // Much slower exponential decay for better diffusion
-    const decayFactor = 0.005; // Reduced from 0.02 for 4x longer reach
+    // Gentler exponential decay for more natural heat flow
+    const decayFactor = 0.008; // Slower decay for better flow around obstacles
     const influence = Math.exp(-effectiveDistance * decayFactor);
+    
+    // Additional flow-based influence: heat spreads better in open areas
+    // Bonus influence for sensors that can reach via shorter flood fill paths
+    const flowBonus = 1 + Math.exp(-pathDistance / 30); // Bonus decreases with path distance
     
     return {
       ...sensor,
-      influence,
+      influence: influence * flowBonus,
       pathDistance,
       effectiveDistance
     };
   });
   
-  const totalInfluence = sensorInfluences.reduce((sum, s) => sum + s.influence, 0);
+  // Filter out unreachable sensors
+  const reachableSensors = sensorInfluences.filter(s => s.influence > 0);
   
-  // Much lower threshold - only use ambient temp in truly unreachable areas
-  if (totalInfluence < 0.00001) return ambientTemp;
+  // If no sensors can reach this point, use ambient temperature
+  if (reachableSensors.length === 0) {
+    return ambientTemp;
+  }
   
-  // Calculate weighted temperature based on path-distance influences
-  const weightedTemp = sensorInfluences.reduce((sum, s) => 
+  // Natural temperature blending - no artificial dominance boosts
+  // Heat spreads naturally based on path accessibility
+  const totalInfluence = reachableSensors.reduce((sum, s) => sum + s.influence, 0);
+  
+  // Calculate weighted temperature based on natural flow influences
+  const weightedTemp = reachableSensors.reduce((sum, s) => 
     sum + (s.temp * s.influence), 0
   ) / totalInfluence;
   
-  // Greatly reduce ambient temperature influence for better diffusion
-  // Only blend ambient temp when sensor influence is extremely weak
-  const influenceThreshold = 0.001; // Much lower threshold
+  // Smooth blending with ambient temperature for areas with weak sensor influence
+  const influenceThreshold = 0.02; // Higher threshold for more natural transitions
   if (totalInfluence < influenceThreshold) {
-    const blendFactor = totalInfluence / influenceThreshold;
+    const blendFactor = Math.pow(totalInfluence / influenceThreshold, 0.5); // Gentler blending curve
     return weightedTemp * blendFactor + ambientTemp * (1 - blendFactor);
   }
   
-  // For areas with reasonable sensor influence, use pure weighted temperature
   return weightedTemp;
 };
 
@@ -475,20 +499,17 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const currentConfig = config.value;
   
-  // Create individual hook calls for each sensor to avoid calling hooks in callbacks
-  const sensor1Temp = useEntityStateValue(hass, currentConfig.sensors[0]?.entity);
-  const sensor2Temp = useEntityStateValue(hass, currentConfig.sensors[1]?.entity);
-  const sensor3Temp = useEntityStateValue(hass, currentConfig.sensors[2]?.entity);
-  const sensor4Temp = useEntityStateValue(hass, currentConfig.sensors[3]?.entity);
-  const sensor5Temp = useEntityStateValue(hass, currentConfig.sensors[4]?.entity);
-  const sensor6Temp = useEntityStateValue(hass, currentConfig.sensors[5]?.entity);
-  
-  const sensorTemperatures = [sensor1Temp, sensor2Temp, sensor3Temp, sensor4Temp, sensor5Temp, sensor6Temp];
-  
-  const sensorStates = currentConfig.sensors.map((sensor, index) => ({
-    ...sensor,
-    temperature: sensorTemperatures[index] || { value: null },
-  }));
+  // Get sensor states directly from Home Assistant using the entity IDs
+  const sensorStates = useMemo(() => 
+    currentConfig.sensors.map(sensor => {
+      const entityState = hass.value?.states?.[sensor.entity];
+      return {
+        ...sensor,
+        temperature: { value: entityState?.state || null },
+      };
+    }),
+    [currentConfig.sensors, hass.value?.states]
+  );
 
   // Calculate canvas dimensions based on wall coordinates
   const getCanvasDimensions = (walls: Wall[], padding: number = 50) => {
@@ -737,7 +758,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
               data[index + 3] = 0;   // Alpha (transparent)
             } else {
               // Inside boundary - interpolate temperature and color
-              const temp = interpolateTemperaturePhysics(x, y, debouncedSensorData, distanceGrid, ambient_temp);
+              const temp = interpolateTemperaturePhysics(x, y, debouncedSensorData, distanceGrid, ambient_temp, currentConfig.walls);
               const color = temperatureToColor(temp, too_cold_temp, too_warm_temp);
               
               const rgb = color.match(/\d+/g)?.map(Number) || [0, 0, 0];

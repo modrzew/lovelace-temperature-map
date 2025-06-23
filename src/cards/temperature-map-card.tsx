@@ -29,6 +29,8 @@ interface Config {
   too_cold_temp?: number;
   too_warm_temp?: number;
   ambient_temp?: number;
+  show_sensor_names?: boolean;
+  show_sensor_temperatures?: boolean;
 }
 
 // Line-line intersection helper
@@ -343,7 +345,9 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     max_temp = 30,
     too_cold_temp = 20,
     too_warm_temp = 26,
-    ambient_temp = 22
+    ambient_temp = 22,
+    show_sensor_names = true,
+    show_sensor_temperatures = true
   } = currentConfig;
 
   const sensorData = useMemo(() => 
@@ -358,6 +362,64 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
       })),
     [sensorStates]
   );
+
+  // Helper function to get mouse position and check if over sensor
+  const getMousePositionAndSensor = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0, sensor: null };
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const x = (event.clientX - rect.left) * scaleX;
+    const y = (event.clientY - rect.top) * scaleY;
+
+    // Check if mouse is within any sensor's clickable area
+    const hoveredSensor = sensorData.find(sensor => {
+      const distance = Math.sqrt((x - sensor.x) ** 2 + (y - sensor.y) ** 2);
+      return distance <= 12; // Clickable radius slightly larger than visual radius (8px)
+    });
+
+    return { x, y, sensor: hoveredSensor };
+  };
+
+  // Handle mouse move to change cursor
+  const handleCanvasMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const { sensor } = getMousePositionAndSensor(event);
+    canvas.style.cursor = sensor ? 'pointer' : 'default';
+  };
+
+  // Handle canvas clicks to detect sensor clicks
+  const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const { sensor: clickedSensor } = getMousePositionAndSensor(event);
+
+    if (clickedSensor && hass.value) {
+      // Call Home Assistant's more-info dialog
+      const event_detail = {
+        entityId: clickedSensor.entity,
+      };
+      
+      // Dispatch Home Assistant's more-info event
+      const moreInfoEvent = new CustomEvent('hass-more-info', {
+        detail: event_detail,
+        bubbles: true,
+        composed: true,
+      });
+      
+      // Try to dispatch on the canvas element first, then document
+      const canvas = canvasRef.current;
+      if (canvas && !canvas.dispatchEvent(moreInfoEvent)) {
+        document.dispatchEvent(moreInfoEvent);
+      }
+
+      // Fallback for development/testing - log the action
+      console.log('Sensor clicked:', clickedSensor.entity, 'Temperature:', clickedSensor.temp);
+    }
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -450,6 +512,13 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
 
       // Draw sensors
       sensors.forEach(sensor => {
+        // Draw outer clickable area hint (subtle)
+        context.fillStyle = 'rgba(51, 51, 51, 0.1)';
+        context.beginPath();
+        context.arc(sensor.x, sensor.y, 12, 0, 2 * Math.PI);
+        context.fill();
+        
+        // Draw main sensor circle
         context.fillStyle = '#fff';
         context.strokeStyle = '#333';
         context.lineWidth = 2;
@@ -461,9 +530,12 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
         context.fillStyle = '#333';
         context.font = '12px system-ui';
         context.textAlign = 'center';
-        context.fillText(`${sensor.temp.toFixed(1)}°`, sensor.x, sensor.y - 12);
         
-        if (sensor.label) {
+        if (show_sensor_temperatures) {
+          context.fillText(`${sensor.temp.toFixed(1)}°`, sensor.x, sensor.y - 12);
+        }
+        
+        if (show_sensor_names && sensor.label) {
           context.fillText(sensor.label, sensor.x, sensor.y + 24);
         }
       });
@@ -479,7 +551,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
         cancelAnimationFrame(animationId);
       }
     };
-  }, [sensorData, currentConfig.walls, width, height, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp]);
+  }, [sensorData, currentConfig.walls, width, height, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures]);
 
   return (
     <Card className="h-full">
@@ -492,6 +564,8 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
             ref={canvasRef}
             style={{ maxWidth: '100%', height: 'auto' }}
             className="border rounded"
+            onClick={handleCanvasClick}
+            onMouseMove={handleCanvasMouseMove}
           />
         </div>
         {sensorData.length === 0 && (

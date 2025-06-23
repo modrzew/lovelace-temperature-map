@@ -58,6 +58,8 @@ createAndDisplayCard('temperature-map-card', TemperatureMapCard, {
   too_cold_temp: 20,
   too_warm_temp: 26,
   ambient_temp: 22,
+  show_sensor_names: true,
+  show_sensor_temperatures: true,
   walls: [
     { x1: 50, y1: 50, x2: 350, y2: 50 },   // Top wall
     { x1: 350, y1: 50, x2: 350, y2: 250 }, // Right wall  

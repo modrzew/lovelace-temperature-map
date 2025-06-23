@@ -202,7 +202,81 @@ interface DistanceGrid {
 
 const distanceGridCache = new Map<string, DistanceGrid>();
 
-// Progressive distance grid computation with requestAnimationFrame
+// Flood fill distance computation - much faster than A* pathfinding
+const floodFillDistances = (
+  sensorX: number,
+  sensorY: number,
+  walls: Wall[],
+  gridWidth: number,
+  gridHeight: number,
+  gridScale: number
+): number[][] => {
+  const distances: number[][] = [];
+  const visited = new Set<string>();
+  const queue: Array<{ x: number; y: number; distance: number }> = [];
+  
+  // Initialize distance grid with infinity
+  for (let y = 0; y < gridHeight; y++) {
+    distances[y] = [];
+    for (let x = 0; x < gridWidth; x++) {
+      distances[y][x] = Infinity;
+    }
+  }
+  
+  // Convert sensor coordinates to grid coordinates
+  const startGx = Math.round(sensorX / gridScale);
+  const startGy = Math.round(sensorY / gridScale);
+  
+  // Start flood fill from sensor position
+  if (startGx >= 0 && startGx < gridWidth && startGy >= 0 && startGy < gridHeight) {
+    distances[startGy][startGx] = 0;
+    queue.push({ x: startGx, y: startGy, distance: 0 });
+    visited.add(`${startGx},${startGy}`);
+  }
+  
+  // Flood fill with BFS
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    
+    // Check all 8 directions (including diagonals)
+    const directions = [
+      { dx: -1, dy: -1, cost: Math.SQRT2 }, { dx: 0, dy: -1, cost: 1 }, { dx: 1, dy: -1, cost: Math.SQRT2 },
+      { dx: -1, dy: 0, cost: 1 },                                        { dx: 1, dy: 0, cost: 1 },
+      { dx: -1, dy: 1, cost: Math.SQRT2 },  { dx: 0, dy: 1, cost: 1 },  { dx: 1, dy: 1, cost: Math.SQRT2 }
+    ];
+    
+    for (const dir of directions) {
+      const newGx = current.x + dir.dx;
+      const newGy = current.y + dir.dy;
+      const key = `${newGx},${newGy}`;
+      
+      // Check bounds
+      if (newGx < 0 || newGx >= gridWidth || newGy < 0 || newGy >= gridHeight) continue;
+      if (visited.has(key)) continue;
+      
+      // Convert back to actual coordinates for wall checking
+      const actualX1 = current.x * gridScale;
+      const actualY1 = current.y * gridScale;
+      const actualX2 = newGx * gridScale;
+      const actualY2 = newGy * gridScale;
+      
+      // Check if path is blocked by walls
+      if (!lineIntersectsWalls(actualX1, actualY1, actualX2, actualY2, walls)) {
+        const newDistance = current.distance + dir.cost * gridScale;
+        
+        if (newDistance < distances[newGy][newGx]) {
+          distances[newGy][newGx] = newDistance;
+          queue.push({ x: newGx, y: newGy, distance: newDistance });
+          visited.add(key);
+        }
+      }
+    }
+  }
+  
+  return distances;
+};
+
+// Progressive flood fill computation with requestAnimationFrame
 const computeDistanceGridAsync = (
   sensors: Array<{ x: number; y: number; temp: number }>,
   walls: Wall[],
@@ -218,29 +292,16 @@ const computeDistanceGridAsync = (
     return () => {}; // No cancellation needed
   }
   
-  const distances: number[][][] = [];
-  
-  // Use a coarser grid for pathfinding, then interpolate for smooth results
-  const gridScale = 4;
+  // Use larger grid scale for even better performance
+  const gridScale = 8; // Increased from 4 for 4x speedup
   const gridWidth = Math.ceil(width / gridScale);
   const gridHeight = Math.ceil(height / gridScale);
   
-  // Initialize distance arrays
-  sensors.forEach((sensor, sensorIndex) => {
-    distances[sensorIndex] = [];
-    for (let gy = 0; gy < gridHeight; gy++) {
-      distances[sensorIndex][gy] = [];
-    }
-  });
+  const distances: number[][][] = [];
   
   let currentSensor = 0;
-  let currentY = 0;
-  let currentX = 0;
   let animationId: number;
   let isCancelled = false;
-  
-  const totalCalculations = sensors.length * gridWidth * gridHeight;
-  let completedCalculations = 0;
   
   const processChunk = () => {
     if (isCancelled) return;
@@ -248,50 +309,32 @@ const computeDistanceGridAsync = (
     const startTime = performance.now();
     const maxTimePerFrame = 16; // Target 60fps
     
-    while (currentSensor < sensors.length && (performance.now() - startTime) < maxTimePerFrame) {
+    // Process one sensor per frame to maintain responsiveness
+    if (currentSensor < sensors.length && (performance.now() - startTime) < maxTimePerFrame) {
       const sensor = sensors[currentSensor];
       
-      // Process multiple grid points per frame
-      let calculationsThisFrame = 0;
-      const maxCalculationsPerFrame = 10; // Limit calculations per frame to maintain responsiveness
-      
-      while (currentY < gridHeight && calculationsThisFrame < maxCalculationsPerFrame && (performance.now() - startTime) < maxTimePerFrame) {
-        const actualX = currentX * gridScale;
-        const actualY = currentY * gridScale;
-        
-        const distance = findPath(
-          { x: actualX, y: actualY }, 
-          sensor, 
-          walls, 
-          width, 
-          height
-        );
-        
-        distances[currentSensor][currentY][currentX] = distance;
-        completedCalculations++;
-        calculationsThisFrame++;
-        
-        currentX++;
-        if (currentX >= gridWidth) {
-          currentX = 0;
-          currentY++;
-        }
-      }
-      
-      if (currentY >= gridHeight) {
-        // Finished current sensor, move to next
-        currentSensor++;
-        currentY = 0;
-        currentX = 0;
-      }
-      
       // Update progress
-      const progress = (completedCalculations / totalCalculations) * 100;
-      onProgress(progress, `Computing sensor ${currentSensor + 1}/${sensors.length}...`);
+      onProgress(
+        (currentSensor / sensors.length) * 100, 
+        `Flood filling sensor ${currentSensor + 1}/${sensors.length}...`
+      );
+      
+      // Perform flood fill for this sensor
+      const sensorDistances = floodFillDistances(
+        sensor.x, 
+        sensor.y, 
+        walls, 
+        gridWidth, 
+        gridHeight, 
+        gridScale
+      );
+      
+      distances[currentSensor] = sensorDistances;
+      currentSensor++;
     }
     
     if (currentSensor < sensors.length) {
-      // More work to do
+      // More sensors to process
       animationId = requestAnimationFrame(processChunk);
     } else {
       // All done!
@@ -325,7 +368,7 @@ const getInterpolatedDistance = (
   sensorIndex: number,
   grid: DistanceGrid
 ): number => {
-  const gridScale = 4;
+  const gridScale = 8; // Updated to match the new grid scale
   const gx = x / gridScale;
   const gy = y / gridScale;
   
@@ -338,10 +381,16 @@ const getInterpolatedDistance = (
   const fx = gx - x1;
   const fy = gy - y1;
   
-  const d11 = grid.distances[sensorIndex][y1]?.[x1] || 0;
-  const d21 = grid.distances[sensorIndex][y1]?.[x2] || 0;
-  const d12 = grid.distances[sensorIndex][y2]?.[x1] || 0;
-  const d22 = grid.distances[sensorIndex][y2]?.[x2] || 0;
+  const d11 = grid.distances[sensorIndex][y1]?.[x1];
+  const d21 = grid.distances[sensorIndex][y1]?.[x2];
+  const d12 = grid.distances[sensorIndex][y2]?.[x1];
+  const d22 = grid.distances[sensorIndex][y2]?.[x2];
+  
+  // Handle infinity values (unreachable areas)
+  if (d11 === undefined || d11 === Infinity) return Infinity;
+  if (d21 === undefined || d21 === Infinity) return d11;
+  if (d12 === undefined || d12 === Infinity) return d11;
+  if (d22 === undefined || d22 === Infinity) return d21;
   
   const d1 = d11 * (1 - fx) + d21 * fx;
   const d2 = d12 * (1 - fx) + d22 * fx;
@@ -362,6 +411,16 @@ const interpolateTemperaturePhysics = (
   // Calculate influences using pre-computed distances
   const sensorInfluences = sensors.map((sensor, index) => {
     const pathDistance = getInterpolatedDistance(x, y, index, distanceGrid);
+    
+    // Skip sensors that are unreachable (infinite distance)
+    if (pathDistance === Infinity) {
+      return {
+        ...sensor,
+        influence: 0,
+        pathDistance: Infinity,
+        effectiveDistance: Infinity
+      };
+    }
     
     // Heat diffusion with path-based distance
     const minDistance = 10; // Minimum effective distance

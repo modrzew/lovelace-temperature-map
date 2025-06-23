@@ -2,7 +2,7 @@ import { type ReactCardProps } from '@/lib/create-react-card';
 import { Card, CardContent } from '@/components/ui/card';
 import { useSignals } from '@preact/signals-react/runtime';
 import { useEntityStateValue } from '@/lib/hooks/hass-hooks';
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 
 interface Wall {
   x1: number;
@@ -67,9 +67,7 @@ const lineIntersectsWalls = (
     if (intersection) {
       // Check if intersection is truly within both line segments with tolerance
       const t1 = Math.abs(x2 - x1) > tolerance ? (intersection.x - x1) / (x2 - x1) : 0;
-      const t2 = Math.abs(y2 - y1) > tolerance ? (intersection.y - y1) / (y2 - y1) : 0;
       const tWall1 = Math.abs(wall.x2 - wall.x1) > tolerance ? (intersection.x - wall.x1) / (wall.x2 - wall.x1) : 0;
-      const tWall2 = Math.abs(wall.y2 - wall.y1) > tolerance ? (intersection.y - wall.y1) / (wall.y2 - wall.y1) : 0;
       
       // Only consider it a true intersection if both parameters are well within bounds
       if (t1 >= tolerance && t1 <= (1 - tolerance) && 
@@ -82,130 +80,6 @@ const lineIntersectsWalls = (
 };
 
 
-// A* pathfinding implementation for realistic heat diffusion
-interface PathNode {
-  x: number;
-  y: number;
-  gScore: number;
-  fScore: number;
-  parent?: PathNode;
-}
-
-const heuristic = (a: PathNode, b: { x: number; y: number }): number => {
-  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
-};
-
-const getNeighbors = (node: PathNode, walls: Wall[], width: number, height: number): PathNode[] => {
-  const neighbors: PathNode[] = [];
-  const directions = [
-    { dx: 0, dy: -1 }, { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, // Cardinal
-    { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: 1, dy: 1 }, { dx: -1, dy: 1 } // Diagonal
-  ];
-  
-  for (const dir of directions) {
-    const newX = node.x + dir.dx * 8; // Step size for performance
-    const newY = node.y + dir.dy * 8;
-    
-    if (newX >= 0 && newX < width && newY >= 0 && newY < height) {
-      // Check if this step crosses any wall
-      if (!lineIntersectsWalls(node.x, node.y, newX, newY, walls)) {
-        const stepCost = Math.sqrt(dir.dx ** 2 + dir.dy ** 2) * 8;
-        neighbors.push({
-          x: newX,
-          y: newY,
-          gScore: Infinity,
-          fScore: Infinity,
-          parent: undefined
-        });
-      }
-    }
-  }
-  
-  return neighbors;
-};
-
-const findPath = (
-  start: { x: number; y: number },
-  goal: { x: number; y: number },
-  walls: Wall[],
-  width: number,
-  height: number
-): number => {
-  // Quick direct path check first
-  if (!lineIntersectsWalls(start.x, start.y, goal.x, goal.y, walls)) {
-    return Math.sqrt((goal.x - start.x) ** 2 + (goal.y - start.y) ** 2);
-  }
-  
-  const openSet: PathNode[] = [];
-  const closedSet = new Set<string>();
-  
-  const startNode: PathNode = {
-    x: start.x,
-    y: start.y,
-    gScore: 0,
-    fScore: heuristic({ x: start.x, y: start.y, gScore: 0, fScore: 0 }, goal)
-  };
-  
-  openSet.push(startNode);
-  
-  while (openSet.length > 0) {
-    // Find node with lowest fScore
-    let current = openSet[0];
-    let currentIndex = 0;
-    
-    for (let i = 1; i < openSet.length; i++) {
-      if (openSet[i].fScore < current.fScore) {
-        current = openSet[i];
-        currentIndex = i;
-      }
-    }
-    
-    openSet.splice(currentIndex, 1);
-    const currentKey = `${current.x},${current.y}`;
-    closedSet.add(currentKey);
-    
-    // Check if we reached the goal (within tolerance)
-    const distToGoal = Math.sqrt((current.x - goal.x) ** 2 + (current.y - goal.y) ** 2);
-    if (distToGoal < 15) {
-      // Reconstruct path length
-      return current.gScore + distToGoal;
-    }
-    
-    // Explore neighbors
-    const neighbors = getNeighbors(current, walls, width, height);
-    
-    for (const neighbor of neighbors) {
-      const neighborKey = `${neighbor.x},${neighbor.y}`;
-      if (closedSet.has(neighborKey)) continue;
-      
-      const stepCost = Math.sqrt((neighbor.x - current.x) ** 2 + (neighbor.y - current.y) ** 2);
-      const tentativeGScore = current.gScore + stepCost;
-      
-      const existingNeighbor = openSet.find(n => n.x === neighbor.x && n.y === neighbor.y);
-      
-      if (!existingNeighbor) {
-        neighbor.gScore = tentativeGScore;
-        neighbor.fScore = tentativeGScore + heuristic(neighbor, goal);
-        neighbor.parent = current;
-        openSet.push(neighbor);
-      } else if (tentativeGScore < existingNeighbor.gScore) {
-        existingNeighbor.gScore = tentativeGScore;
-        existingNeighbor.fScore = tentativeGScore + heuristic(existingNeighbor, goal);
-        existingNeighbor.parent = current;
-      }
-    }
-    
-    // Limit iterations for performance
-    if (closedSet.size > 500) break;
-  }
-  
-  // No path found - return high penalty distance
-  const directDistance = Math.sqrt((goal.x - start.x) ** 2 + (goal.y - start.y) ** 2);
-  return directDistance * 5; // Heavy penalty for blocked paths
-};
-
-// Cache for pathfinding results to improve performance
-const pathCache = new Map<string, number>();
 
 // Pre-computed distance grid for major performance improvement
 interface DistanceGrid {
@@ -556,7 +430,7 @@ const temperatureToColor = (temp: number, tooCold: number, tooWarm: number): str
   return `rgb(${r}, ${g}, ${b})`;
 };
 
-const isPointInsideBoundary = (x: number, y: number, walls: Wall[], canvasWidth: number, canvasHeight: number): boolean => {
+const isPointInsideBoundary = (x: number, y: number, walls: Wall[]): boolean => {
   if (walls.length === 0) return true;
   
   // Find the bounding box from all walls
@@ -577,6 +451,23 @@ const isPointInsideBoundary = (x: number, y: number, walls: Wall[], canvasWidth:
   }
   
   return true;
+};
+
+// Custom hook for debouncing sensor data to prevent flickering
+const useDebouncedSensorData = (sensorData: any[], delay: number = 2000) => {
+  const [debouncedSensorData, setDebouncedSensorData] = useState(sensorData);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSensorData(sensorData);
+    }, delay);
+    
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [sensorData, delay]);
+  
+  return debouncedSensorData;
 };
 
 export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => {
@@ -663,6 +554,9 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     [sensorStates, hass.value?.states]
   );
 
+  // Debounce sensor data to prevent frequent re-renders and flickering
+  const debouncedSensorData = useDebouncedSensorData(sensorData, 2000);
+
   // Helper function to get mouse position and check if over sensor
   const getMousePositionAndSensor = (event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -676,6 +570,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     const y = (event.clientY - rect.top) * scaleY;
 
     // Check if mouse is within any sensor's clickable area
+    // Use current sensorData for real-time interaction, not debounced
     const hoveredSensor = sensorData.find(sensor => {
       const distance = Math.sqrt((x - sensor.x) ** 2 + (y - sensor.y) ** 2);
       return distance <= 12; // Clickable radius slightly larger than visual radius (8px)
@@ -723,7 +618,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || sensorData.length === 0) return;
+    if (!canvas || debouncedSensorData.length === 0) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -737,143 +632,133 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     ctx.fillStyle = '#666';
     ctx.font = '16px system-ui';
     ctx.textAlign = 'center';
-    ctx.fillText('Starting computation...', width / 2, height / 2);
+    ctx.fillText('Computing temperature map...', width / 2, height / 2);
 
     let cancelDistanceGrid: (() => void) | null = null;
-    let renderAnimationId: number | null = null;
     let isCancelled = false;
 
-    // Progress update function
-    const updateProgress = (progress: number, stage: string) => {
-      if (isCancelled) return;
-      
-      ctx.fillStyle = '#f5f5f5';
-      ctx.fillRect(0, 0, width, height);
-      ctx.fillStyle = '#666';
-      ctx.font = '16px system-ui';
-      ctx.textAlign = 'center';
-      ctx.fillText(stage, width / 2, height / 2 - 10);
-      ctx.font = '14px system-ui';
-      ctx.fillText(`${Math.round(progress)}% complete`, width / 2, height / 2 + 10);
+    // Helper function to draw walls and sensors
+    const drawOverlay = (
+      context: CanvasRenderingContext2D, 
+      walls: Wall[], 
+      sensors: Array<{ x: number; y: number; temp: number; label?: string }>
+    ) => {
+      // Draw walls
+      context.strokeStyle = '#333';
+      context.lineWidth = 2;
+      walls.forEach(wall => {
+        context.beginPath();
+        context.moveTo(wall.x1, wall.y1);
+        context.lineTo(wall.x2, wall.y2);
+        context.stroke();
+      });
+
+      // Draw sensors
+      sensors.forEach(sensor => {
+        // Draw outer clickable area hint (subtle)
+        context.fillStyle = 'rgba(51, 51, 51, 0.1)';
+        context.beginPath();
+        context.arc(sensor.x, sensor.y, 12, 0, 2 * Math.PI);
+        context.fill();
+        
+        // Draw main sensor circle
+        context.fillStyle = '#fff';
+        context.strokeStyle = '#333';
+        context.lineWidth = 2;
+        context.beginPath();
+        context.arc(sensor.x, sensor.y, 8, 0, 2 * Math.PI);
+        context.fill();
+        context.stroke();
+
+        context.fillStyle = '#333';
+        context.font = '12px system-ui';
+        context.textAlign = 'center';
+        
+        if (show_sensor_temperatures) {
+          context.fillText(`${sensor.temp.toFixed(1)}°`, sensor.x, sensor.y - 12);
+        }
+        
+        if (show_sensor_names && sensor.label) {
+          context.fillText(sensor.label, sensor.x, sensor.y + 24);
+        }
+      });
     };
+
+    // Create off-screen canvas for rendering
+    const offscreenCanvas = document.createElement('canvas');
+    offscreenCanvas.width = width;
+    offscreenCanvas.height = height;
+    const offscreenCtx = offscreenCanvas.getContext('2d');
+    if (!offscreenCtx) return;
 
     // Start distance grid computation
     cancelDistanceGrid = computeDistanceGridAsync(
-      sensorData,
+      debouncedSensorData,
       currentConfig.walls,
       width,
       height,
-      updateProgress,
-      (distanceGrid) => {
+      (progress: number, stage: string) => {
+        // Update progress on main canvas during computation
         if (isCancelled) return;
-
-        // Distance grid is ready, now start progressive map rendering
         ctx.fillStyle = '#f5f5f5';
         ctx.fillRect(0, 0, width, height);
         ctx.fillStyle = '#666';
         ctx.font = '16px system-ui';
         ctx.textAlign = 'center';
-        ctx.fillText('Generating temperature map...', width / 2, height / 2);
+        ctx.fillText(stage, width / 2, height / 2 - 10);
+        ctx.font = '14px system-ui';
+        ctx.fillText(`${Math.round(progress)}% complete`, width / 2, height / 2 + 10);
+      },
+      (distanceGrid) => {
+        if (isCancelled) return;
 
-        // Progressive rendering state
-        const imageData = ctx.createImageData(width, height);
+        // Distance grid is ready, now render entire map to off-screen canvas
+        ctx.fillStyle = '#f5f5f5';
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = '#666';
+        ctx.font = '16px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('Rendering temperature map...', width / 2, height / 2);
+
+        // Render entire map to off-screen canvas at once
+        const imageData = offscreenCtx.createImageData(width, height);
         const data = imageData.data;
-        let currentRow = 0;
 
-        const processChunk = () => {
-          if (isCancelled) return;
-
-          const startTime = performance.now();
-          const maxTimePerFrame = 16; // Target 60fps
-
-          // Process rows until we hit our time budget
-          while (currentRow < height && (performance.now() - startTime) < maxTimePerFrame) {
-            for (let x = 0; x < width; x++) {
-              const index = (currentRow * width + x) * 4;
+        // Process all pixels at once (no progressive rendering)
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const index = (y * width + x) * 4;
+            
+            if (!isPointInsideBoundary(x, y, currentConfig.walls)) {
+              // Outside boundary - make it white/transparent
+              data[index] = 255;     // Red
+              data[index + 1] = 255; // Green
+              data[index + 2] = 255; // Blue
+              data[index + 3] = 0;   // Alpha (transparent)
+            } else {
+              // Inside boundary - interpolate temperature and color
+              const temp = interpolateTemperaturePhysics(x, y, debouncedSensorData, distanceGrid, ambient_temp);
+              const color = temperatureToColor(temp, too_cold_temp, too_warm_temp);
               
-              if (!isPointInsideBoundary(x, currentRow, currentConfig.walls, width, height)) {
-                // Outside boundary - make it white/transparent
-                data[index] = 255;     // Red
-                data[index + 1] = 255; // Green
-                data[index + 2] = 255; // Blue
-                data[index + 3] = 0;   // Alpha (transparent)
-              } else {
-                // Inside boundary - interpolate temperature and color
-                const temp = interpolateTemperaturePhysics(x, currentRow, sensorData, distanceGrid, ambient_temp);
-                const color = temperatureToColor(temp, too_cold_temp, too_warm_temp);
-                
-                const rgb = color.match(/\d+/g)?.map(Number) || [0, 0, 0];
-                
-                data[index] = rgb[0];     // Red
-                data[index + 1] = rgb[1]; // Green
-                data[index + 2] = rgb[2]; // Blue
-                data[index + 3] = 120;    // Alpha (semi-transparent)
-              }
+              const rgb = color.match(/\d+/g)?.map(Number) || [0, 0, 0];
+              
+              data[index] = rgb[0];     // Red
+              data[index + 1] = rgb[1]; // Green
+              data[index + 2] = rgb[2]; // Blue
+              data[index + 3] = 120;    // Alpha (semi-transparent)
             }
-            currentRow++;
           }
+        }
 
-          // Update canvas with current progress
-          ctx.putImageData(imageData, 0, 0);
+        // Draw to off-screen canvas
+        offscreenCtx.putImageData(imageData, 0, 0);
 
-          // Draw walls and sensors on top (so they're always visible)
-          drawOverlay(ctx, currentConfig.walls, sensorData);
+        // Draw walls and sensors on off-screen canvas
+        drawOverlay(offscreenCtx, currentConfig.walls, debouncedSensorData);
 
-          if (currentRow < height) {
-            // More work to do, schedule next chunk
-            renderAnimationId = requestAnimationFrame(processChunk);
-          }
-        };
-
-        // Helper function to draw walls and sensors
-        const drawOverlay = (
-          context: CanvasRenderingContext2D, 
-          walls: Wall[], 
-          sensors: Array<{ x: number; y: number; temp: number; label?: string }>
-        ) => {
-          // Draw walls
-          context.strokeStyle = '#333';
-          context.lineWidth = 2;
-          walls.forEach(wall => {
-            context.beginPath();
-            context.moveTo(wall.x1, wall.y1);
-            context.lineTo(wall.x2, wall.y2);
-            context.stroke();
-          });
-
-          // Draw sensors
-          sensors.forEach(sensor => {
-            // Draw outer clickable area hint (subtle)
-            context.fillStyle = 'rgba(51, 51, 51, 0.1)';
-            context.beginPath();
-            context.arc(sensor.x, sensor.y, 12, 0, 2 * Math.PI);
-            context.fill();
-            
-            // Draw main sensor circle
-            context.fillStyle = '#fff';
-            context.strokeStyle = '#333';
-            context.lineWidth = 2;
-            context.beginPath();
-            context.arc(sensor.x, sensor.y, 8, 0, 2 * Math.PI);
-            context.fill();
-            context.stroke();
-
-            context.fillStyle = '#333';
-            context.font = '12px system-ui';
-            context.textAlign = 'center';
-            
-            if (show_sensor_temperatures) {
-              context.fillText(`${sensor.temp.toFixed(1)}°`, sensor.x, sensor.y - 12);
-            }
-            
-            if (show_sensor_names && sensor.label) {
-              context.fillText(sensor.label, sensor.x, sensor.y + 24);
-            }
-          });
-        };
-
-        // Start progressive rendering
-        renderAnimationId = requestAnimationFrame(processChunk);
+        // Copy completed off-screen canvas to main canvas in one operation
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(offscreenCanvas, 0, 0);
       }
     );
 
@@ -883,11 +768,8 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
       if (cancelDistanceGrid) {
         cancelDistanceGrid();
       }
-      if (renderAnimationId) {
-        cancelAnimationFrame(renderAnimationId);
-      }
     };
-  }, [sensorData, currentConfig.walls, width, height, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures]);
+  }, [debouncedSensorData, currentConfig.walls, width, height, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures]);
 
   return (
     <Card className="h-full">

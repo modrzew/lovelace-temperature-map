@@ -454,31 +454,146 @@ const temperatureToColor = (temp: number, tooCold: number, tooWarm: number): str
   return `rgb(${r}, ${g}, ${b})`;
 };
 
-const isPointInsideBoundary = (x: number, y: number, walls: Wall[]): boolean => {
+// Cache for boundary checking to improve performance
+let boundaryCache: Set<string> | null = null;
+let boundaryCacheKey: string = '';
+
+const isPointInsideBoundary = (
+  x: number, 
+  y: number, 
+  walls: Wall[], 
+  canvasWidth: number, 
+  canvasHeight: number, 
+  sensors: Array<{ x: number; y: number }> = []
+): boolean => {
   if (walls.length === 0) return true;
   
-  // Find the bounding box from all walls
-  const allPoints = walls.flatMap(wall => [
-    { x: wall.x1, y: wall.y1 },
-    { x: wall.x2, y: wall.y2 }
-  ]);
+  // Create cache key based on walls and sensor configuration
+  const cacheKey = walls.map(w => `${w.x1},${w.y1},${w.x2},${w.y2}`).join('|') + 
+                   '|' + sensors.map(s => `${s.x},${s.y}`).join('|');
   
-  const minX = Math.min(...allPoints.map(p => p.x));
-  const maxX = Math.max(...allPoints.map(p => p.x));
-  const minY = Math.min(...allPoints.map(p => p.y));
-  const maxY = Math.max(...allPoints.map(p => p.y));
-  
-  // Simple boundary check without wall thickness complications
-  // This eliminates the edge artifacts
-  if (x < minX || x > maxX || y < minY || y > maxY) {
-    return false;
+  // If cache is invalid, recompute boundary
+  if (!boundaryCache || boundaryCacheKey !== cacheKey) {
+    boundaryCache = computeBoundaryPoints(walls, canvasWidth, canvasHeight, sensors);
+    boundaryCacheKey = cacheKey;
   }
   
-  return true;
+  return boundaryCache.has(`${Math.floor(x)},${Math.floor(y)}`);
+};
+
+const computeBoundaryPoints = (
+  walls: Wall[], 
+  canvasWidth: number, 
+  canvasHeight: number, 
+  sensors: Array<{ x: number; y: number }> = []
+): Set<string> => {
+  const boundaryPoints = new Set<string>();
+  
+  if (sensors.length === 0) {
+    // No sensors to guide us - fall back to bounding box
+    const allPoints = walls.flatMap(wall => [
+      { x: wall.x1, y: wall.y1 },
+      { x: wall.x2, y: wall.y2 }
+    ]);
+    
+    if (allPoints.length === 0) {
+      // No walls either - include everything
+      for (let y = 0; y < canvasHeight; y++) {
+        for (let x = 0; x < canvasWidth; x++) {
+          boundaryPoints.add(`${x},${y}`);
+        }
+      }
+      return boundaryPoints;
+    }
+    
+    const minX = Math.min(...allPoints.map(p => p.x));
+    const maxX = Math.max(...allPoints.map(p => p.x));
+    const minY = Math.min(...allPoints.map(p => p.y));
+    const maxY = Math.max(...allPoints.map(p => p.y));
+    
+    for (let y = 0; y < canvasHeight; y++) {
+      for (let x = 0; x < canvasWidth; x++) {
+        if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
+          boundaryPoints.add(`${x},${y}`);
+        }
+      }
+    }
+    return boundaryPoints;
+  }
+  
+  // Use flood fill from sensor locations to determine interior areas
+  const gridScale = 4;
+  const gridWidth = Math.ceil(canvasWidth / gridScale);
+  const gridHeight = Math.ceil(canvasHeight / gridScale);
+  
+  const visited = new Set<string>();
+  const queue: Array<{ x: number; y: number }> = [];
+  
+  // Start flood fill from all sensor locations (they're definitely inside)
+  for (const sensor of sensors) {
+    const gridX = Math.floor(sensor.x / gridScale);
+    const gridY = Math.floor(sensor.y / gridScale);
+    if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight) {
+      queue.push({ x: gridX, y: gridY });
+    }
+  }
+  
+  // Flood fill to mark all reachable interior points
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const key = `${current.x},${current.y}`;
+    
+    if (visited.has(key)) continue;
+    if (current.x < 0 || current.x >= gridWidth || current.y < 0 || current.y >= gridHeight) continue;
+    
+    visited.add(key);
+    
+    // Convert grid coordinates to actual coordinates
+    const actualX = current.x * gridScale + gridScale / 2;
+    const actualY = current.y * gridScale + gridScale / 2;
+    
+    // Check all 4 directions
+    const directions = [
+      { dx: -1, dy: 0 }, { dx: 1, dy: 0 },
+      { dx: 0, dy: -1 }, { dx: 0, dy: 1 }
+    ];
+    
+    for (const dir of directions) {
+      const newX = current.x + dir.dx;
+      const newY = current.y + dir.dy;
+      const newKey = `${newX},${newY}`;
+      
+      if (visited.has(newKey)) continue;
+      if (newX < 0 || newX >= gridWidth || newY < 0 || newY >= gridHeight) continue;
+      
+      const newActualX = newX * gridScale + gridScale / 2;
+      const newActualY = newY * gridScale + gridScale / 2;
+      
+      // Check if movement is blocked by a wall
+      if (!lineIntersectsWalls(actualX, actualY, newActualX, newActualY, walls)) {
+        queue.push({ x: newX, y: newY });
+      }
+    }
+  }
+  
+  // Mark all points in visited grid cells as interior
+  for (let y = 0; y < canvasHeight; y++) {
+    for (let x = 0; x < canvasWidth; x++) {
+      const gridX = Math.floor(x / gridScale);
+      const gridY = Math.floor(y / gridScale);
+      const gridKey = `${gridX},${gridY}`;
+      
+      if (visited.has(gridKey)) {
+        boundaryPoints.add(`${x},${y}`);
+      }
+    }
+  }
+  
+  return boundaryPoints;
 };
 
 // Custom hook for debouncing sensor data to prevent flickering
-const useDebouncedSensorData = (sensorData: any[], delay: number = 2000) => {
+const useDebouncedSensorData = (sensorData: Array<{ x: number; y: number; temp: number; label: string; entity: string }>, delay: number = 2000) => {
   const [debouncedSensorData, setDebouncedSensorData] = useState(sensorData);
   
   useEffect(() => {
@@ -567,7 +682,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
         return {
           x: sensor.x,
           y: sensor.y,
-          temp: parseFloat(sensor.temperature.value),
+          temp: parseFloat(sensor.temperature.value!), // Non-null assertion since we filtered above
           label: displayLabel,
           entity: sensor.entity,
         };
@@ -750,7 +865,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
           for (let x = 0; x < width; x++) {
             const index = (y * width + x) * 4;
             
-            if (!isPointInsideBoundary(x, y, currentConfig.walls)) {
+            if (!isPointInsideBoundary(x, y, currentConfig.walls, width, height, debouncedSensorData)) {
               // Outside boundary - make it white/transparent
               data[index] = 255;     // Red
               data[index + 1] = 255; // Green

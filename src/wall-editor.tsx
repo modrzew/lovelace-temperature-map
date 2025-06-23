@@ -21,6 +21,7 @@ const WallEditor: React.FC = () => {
   const [wallsText, setWallsText] = useState(defaultWalls);
   const [walls, setWalls] = useState<Wall[]>([]);
   const [error, setError] = useState<string>('');
+  const [clickCoordinates, setClickCoordinates] = useState<{ x: number; y: number } | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   // Calculate canvas dimensions based on wall coordinates
@@ -152,7 +153,29 @@ const WallEditor: React.FC = () => {
       ctx.textAlign = 'left';
       ctx.fillText(`(0,${height})`, 5, height - 5);
     }
-  }, [walls, width, height]);
+
+    // Draw clicked coordinates marker
+    if (clickCoordinates) {
+      const markerX = clickCoordinates.x + offsetX;
+      const markerY = clickCoordinates.y + offsetY;
+      
+      // Draw crosshair
+      ctx.strokeStyle = '#ff0000';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(markerX - 10, markerY);
+      ctx.lineTo(markerX + 10, markerY);
+      ctx.moveTo(markerX, markerY - 10);
+      ctx.lineTo(markerX, markerY + 10);
+      ctx.stroke();
+      
+      // Draw coordinate label
+      ctx.fillStyle = '#ff0000';
+      ctx.font = '12px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(`(${clickCoordinates.x},${clickCoordinates.y})`, markerX, markerY - 15);
+    }
+  }, [walls, width, height, clickCoordinates, offsetX, offsetY]);
 
   const handleReset = () => {
     setWallsText(defaultWalls);
@@ -187,6 +210,32 @@ const WallEditor: React.FC = () => {
   { x1: 50, y1: -100, x2: 50, y2: 50 },        // Interior wall
 ]`;
     setWallsText(negativeWalls);
+  };
+
+  // Handle canvas clicks to get coordinates
+  const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const canvasX = (event.clientX - rect.left) * scaleX;
+    const canvasY = (event.clientY - rect.top) * scaleY;
+
+    // Convert canvas coordinates back to actual wall coordinates
+    const actualX = Math.round(canvasX - offsetX);
+    const actualY = Math.round(canvasY - offsetY);
+
+    setClickCoordinates({ x: actualX, y: actualY });
+  };
+
+  const copyCoordinates = () => {
+    if (clickCoordinates) {
+      const coordText = `{ x: ${clickCoordinates.x}, y: ${clickCoordinates.y} }`;
+      navigator.clipboard.writeText(coordText);
+    }
   };
 
   return (
@@ -257,8 +306,9 @@ const WallEditor: React.FC = () => {
               <div className="border rounded p-2 bg-white">
                 <canvas
                   ref={canvasRef}
-                  className="border"
+                  className="border cursor-crosshair"
                   style={{ maxWidth: '100%', height: 'auto' }}
+                  onClick={handleCanvasClick}
                 />
               </div>
 
@@ -284,6 +334,24 @@ const WallEditor: React.FC = () => {
                 )}
               </div>
 
+              {clickCoordinates && (
+                <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-blue-800">Clicked Coordinates:</p>
+                      <p className="text-lg font-mono text-blue-900">({clickCoordinates.x}, {clickCoordinates.y})</p>
+                    </div>
+                    <button
+                      onClick={copyCoordinates}
+                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-1">Click anywhere on the canvas to get coordinates for sensor positioning</p>
+                </div>
+              )}
+
               <div className="bg-gray-50 p-3 rounded text-sm">
                 <p><strong>Wall format:</strong></p>
                 <code>{'{ x1: startX, y1: startY, x2: endX, y2: endY }'}</code>
@@ -308,11 +376,17 @@ const WallEditor: React.FC = () => {
               <li>The visual preview updates in real-time as you type</li>
               <li>Use the grid lines (50px spacing) as reference for positioning</li>
               <li>Wall indices are shown as blue numbers for easy identification</li>
-              <li>Copy the final configuration to use in your Home Assistant card</li>
+              <li><strong>Click anywhere on the canvas</strong> to get exact coordinates for sensor positioning</li>
+              <li>Copy coordinates or the final configuration to use in your Home Assistant card</li>
             </ol>
             
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
-              <p><strong>Tip:</strong> Start with exterior walls (canvas boundaries) then add interior walls for rooms.</p>
+            <div className="mt-4 space-y-3">
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                <p><strong>Design Tip:</strong> Start with exterior walls (canvas boundaries) then add interior walls for rooms.</p>
+              </div>
+              <div className="p-3 bg-green-50 border border-green-200 rounded">
+                <p><strong>Sensor Positioning:</strong> Click on the canvas where you want to place sensors. The crosshair and coordinates will help you position them accurately in room centers or specific locations.</p>
+              </div>
             </div>
           </div>
         </CardContent>

@@ -193,35 +193,182 @@ const findPath = (
 // Cache for pathfinding results to improve performance
 const pathCache = new Map<string, number>();
 
-// Heat diffusion using pathfinding for realistic temperature blending
+// Pre-computed distance grid for major performance improvement
+interface DistanceGrid {
+  distances: number[][][]; // [sensorIndex][y][x] = distance
+  width: number;
+  height: number;
+}
+
+const distanceGridCache = new Map<string, DistanceGrid>();
+
+// Progressive distance grid computation with requestAnimationFrame
+const computeDistanceGridAsync = (
+  sensors: Array<{ x: number; y: number; temp: number }>,
+  walls: Wall[],
+  width: number,
+  height: number,
+  onProgress: (progress: number, stage: string) => void,
+  onComplete: (grid: DistanceGrid) => void
+): (() => void) => {
+  const cacheKey = `${sensors.map(s => `${s.x},${s.y}`).join('|')}-${width}x${height}`;
+  
+  if (distanceGridCache.has(cacheKey)) {
+    onComplete(distanceGridCache.get(cacheKey)!);
+    return () => {}; // No cancellation needed
+  }
+  
+  const distances: number[][][] = [];
+  
+  // Use a coarser grid for pathfinding, then interpolate for smooth results
+  const gridScale = 4;
+  const gridWidth = Math.ceil(width / gridScale);
+  const gridHeight = Math.ceil(height / gridScale);
+  
+  // Initialize distance arrays
+  sensors.forEach((sensor, sensorIndex) => {
+    distances[sensorIndex] = [];
+    for (let gy = 0; gy < gridHeight; gy++) {
+      distances[sensorIndex][gy] = [];
+    }
+  });
+  
+  let currentSensor = 0;
+  let currentY = 0;
+  let currentX = 0;
+  let animationId: number;
+  let isCancelled = false;
+  
+  const totalCalculations = sensors.length * gridWidth * gridHeight;
+  let completedCalculations = 0;
+  
+  const processChunk = () => {
+    if (isCancelled) return;
+    
+    const startTime = performance.now();
+    const maxTimePerFrame = 16; // Target 60fps
+    
+    while (currentSensor < sensors.length && (performance.now() - startTime) < maxTimePerFrame) {
+      const sensor = sensors[currentSensor];
+      
+      // Process multiple grid points per frame
+      let calculationsThisFrame = 0;
+      const maxCalculationsPerFrame = 10; // Limit calculations per frame to maintain responsiveness
+      
+      while (currentY < gridHeight && calculationsThisFrame < maxCalculationsPerFrame && (performance.now() - startTime) < maxTimePerFrame) {
+        const actualX = currentX * gridScale;
+        const actualY = currentY * gridScale;
+        
+        const distance = findPath(
+          { x: actualX, y: actualY }, 
+          sensor, 
+          walls, 
+          width, 
+          height
+        );
+        
+        distances[currentSensor][currentY][currentX] = distance;
+        completedCalculations++;
+        calculationsThisFrame++;
+        
+        currentX++;
+        if (currentX >= gridWidth) {
+          currentX = 0;
+          currentY++;
+        }
+      }
+      
+      if (currentY >= gridHeight) {
+        // Finished current sensor, move to next
+        currentSensor++;
+        currentY = 0;
+        currentX = 0;
+      }
+      
+      // Update progress
+      const progress = (completedCalculations / totalCalculations) * 100;
+      onProgress(progress, `Computing sensor ${currentSensor + 1}/${sensors.length}...`);
+    }
+    
+    if (currentSensor < sensors.length) {
+      // More work to do
+      animationId = requestAnimationFrame(processChunk);
+    } else {
+      // All done!
+      const grid: DistanceGrid = {
+        distances,
+        width: gridWidth,
+        height: gridHeight
+      };
+      
+      distanceGridCache.set(cacheKey, grid);
+      onComplete(grid);
+    }
+  };
+  
+  // Start processing
+  animationId = requestAnimationFrame(processChunk);
+  
+  // Return cancellation function
+  return () => {
+    isCancelled = true;
+    if (animationId) {
+      cancelAnimationFrame(animationId);
+    }
+  };
+};
+
+// Get interpolated distance from pre-computed grid
+const getInterpolatedDistance = (
+  x: number,
+  y: number,
+  sensorIndex: number,
+  grid: DistanceGrid
+): number => {
+  const gridScale = 4;
+  const gx = x / gridScale;
+  const gy = y / gridScale;
+  
+  const x1 = Math.floor(gx);
+  const y1 = Math.floor(gy);
+  const x2 = Math.min(x1 + 1, grid.width - 1);
+  const y2 = Math.min(y1 + 1, grid.height - 1);
+  
+  // Bilinear interpolation
+  const fx = gx - x1;
+  const fy = gy - y1;
+  
+  const d11 = grid.distances[sensorIndex][y1]?.[x1] || 0;
+  const d21 = grid.distances[sensorIndex][y1]?.[x2] || 0;
+  const d12 = grid.distances[sensorIndex][y2]?.[x1] || 0;
+  const d22 = grid.distances[sensorIndex][y2]?.[x2] || 0;
+  
+  const d1 = d11 * (1 - fx) + d21 * fx;
+  const d2 = d12 * (1 - fx) + d22 * fx;
+  
+  return d1 * (1 - fy) + d2 * fy;
+};
+
+// Optimized heat diffusion using pre-computed distance grid
 const interpolateTemperaturePhysics = (
   x: number,
   y: number,
   sensors: Array<{ x: number; y: number; temp: number }>,
-  walls: Wall[],
-  ambientTemp: number = 22,
-  width: number = 400,
-  height: number = 300
+  distanceGrid: DistanceGrid,
+  ambientTemp: number = 22
 ): number => {
   if (sensors.length === 0) return ambientTemp;
   
-  // Calculate actual path distances to each sensor
-  const sensorInfluences = sensors.map(sensor => {
-    // Create cache key for this path
-    const cacheKey = `${Math.round(x / 4) * 4},${Math.round(y / 4) * 4}-${sensor.x},${sensor.y}`;
-    
-    let pathDistance = pathCache.get(cacheKey);
-    if (pathDistance === undefined) {
-      pathDistance = findPath({ x, y }, sensor, walls, width, height);
-      pathCache.set(cacheKey, pathDistance);
-    }
+  // Calculate influences using pre-computed distances
+  const sensorInfluences = sensors.map((sensor, index) => {
+    const pathDistance = getInterpolatedDistance(x, y, index, distanceGrid);
     
     // Heat diffusion with path-based distance
     const minDistance = 10; // Minimum effective distance
     const effectiveDistance = Math.max(pathDistance, minDistance);
     
-    // Exponential decay for heat diffusion (more realistic than inverse square for confined spaces)
-    const decayFactor = 0.02; // Controls how quickly temperature influence fades
+    // Exponential decay for heat diffusion
+    const decayFactor = 0.02;
     const influence = Math.exp(-effectiveDistance * decayFactor);
     
     return {
@@ -242,7 +389,7 @@ const interpolateTemperaturePhysics = (
   ) / totalInfluence;
   
   // Blend with ambient temperature based on total influence strength
-  const maxPossibleInfluence = 1.0; // When very close to a sensor
+  const maxPossibleInfluence = 1.0;
   const influenceFactor = Math.min(totalInfluence / maxPossibleInfluence, 1);
   
   return weightedTemp * influenceFactor + ambientTemp * (1 - influenceFactor);
@@ -468,127 +615,163 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear path cache when configuration changes
-    pathCache.clear();
-
     canvas.width = width;
     canvas.height = height;
 
-    // Show loading placeholder
+    // Show initial loading placeholder
     ctx.fillStyle = '#f5f5f5';
     ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = '#666';
     ctx.font = '16px system-ui';
     ctx.textAlign = 'center';
-    ctx.fillText('Calculating temperature map...', width / 2, height / 2);
+    ctx.fillText('Starting computation...', width / 2, height / 2);
 
-    // Progressive calculation state
-    const imageData = ctx.createImageData(width, height);
-    const data = imageData.data;
-    let currentRow = 0;
-    let animationId: number;
+    let cancelDistanceGrid: (() => void) | null = null;
+    let renderAnimationId: number | null = null;
     let isCancelled = false;
 
-    const processChunk = () => {
+    // Progress update function
+    const updateProgress = (progress: number, stage: string) => {
       if (isCancelled) return;
+      
+      ctx.fillStyle = '#f5f5f5';
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#666';
+      ctx.font = '16px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(stage, width / 2, height / 2 - 10);
+      ctx.font = '14px system-ui';
+      ctx.fillText(`${Math.round(progress)}% complete`, width / 2, height / 2 + 10);
+    };
 
-      const startTime = performance.now();
-      const maxTimePerFrame = 16; // Target 60fps, allow up to 16ms per frame
+    // Start distance grid computation
+    cancelDistanceGrid = computeDistanceGridAsync(
+      sensorData,
+      currentConfig.walls,
+      width,
+      height,
+      updateProgress,
+      (distanceGrid) => {
+        if (isCancelled) return;
 
-      // Process rows until we hit our time budget
-      while (currentRow < height && (performance.now() - startTime) < maxTimePerFrame) {
-        for (let x = 0; x < width; x++) {
-          const index = (currentRow * width + x) * 4;
-          
-          if (!isPointInsideBoundary(x, currentRow, currentConfig.walls)) {
-            // Outside boundary - make it white/transparent
-            data[index] = 255;     // Red
-            data[index + 1] = 255; // Green
-            data[index + 2] = 255; // Blue
-            data[index + 3] = 0;   // Alpha (transparent)
-          } else {
-            // Inside boundary - interpolate temperature and color
-            const temp = interpolateTemperaturePhysics(x, currentRow, sensorData, currentConfig.walls, ambient_temp, width, height);
-            const color = temperatureToColor(temp, too_cold_temp, too_warm_temp);
-            
-            const rgb = color.match(/\d+/g)?.map(Number) || [0, 0, 0];
-            
-            data[index] = rgb[0];     // Red
-            data[index + 1] = rgb[1]; // Green
-            data[index + 2] = rgb[2]; // Blue
-            data[index + 3] = 120;    // Alpha (semi-transparent)
+        // Distance grid is ready, now start progressive map rendering
+        ctx.fillStyle = '#f5f5f5';
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = '#666';
+        ctx.font = '16px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('Generating temperature map...', width / 2, height / 2);
+
+        // Progressive rendering state
+        const imageData = ctx.createImageData(width, height);
+        const data = imageData.data;
+        let currentRow = 0;
+
+        const processChunk = () => {
+          if (isCancelled) return;
+
+          const startTime = performance.now();
+          const maxTimePerFrame = 16; // Target 60fps
+
+          // Process rows until we hit our time budget
+          while (currentRow < height && (performance.now() - startTime) < maxTimePerFrame) {
+            for (let x = 0; x < width; x++) {
+              const index = (currentRow * width + x) * 4;
+              
+              if (!isPointInsideBoundary(x, currentRow, currentConfig.walls)) {
+                // Outside boundary - make it white/transparent
+                data[index] = 255;     // Red
+                data[index + 1] = 255; // Green
+                data[index + 2] = 255; // Blue
+                data[index + 3] = 0;   // Alpha (transparent)
+              } else {
+                // Inside boundary - interpolate temperature and color using pre-computed grid
+                const temp = interpolateTemperaturePhysics(x, currentRow, sensorData, distanceGrid, ambient_temp);
+                const color = temperatureToColor(temp, too_cold_temp, too_warm_temp);
+                
+                const rgb = color.match(/\d+/g)?.map(Number) || [0, 0, 0];
+                
+                data[index] = rgb[0];     // Red
+                data[index + 1] = rgb[1]; // Green
+                data[index + 2] = rgb[2]; // Blue
+                data[index + 3] = 120;    // Alpha (semi-transparent)
+              }
+            }
+            currentRow++;
           }
-        }
-        currentRow++;
+
+          // Update canvas with current progress
+          ctx.putImageData(imageData, 0, 0);
+
+          // Draw walls and sensors on top (so they're always visible)
+          drawOverlay(ctx, currentConfig.walls, sensorData);
+
+          if (currentRow < height) {
+            // More work to do, schedule next chunk
+            renderAnimationId = requestAnimationFrame(processChunk);
+          }
+        };
+
+        // Helper function to draw walls and sensors
+        const drawOverlay = (
+          context: CanvasRenderingContext2D, 
+          walls: Wall[], 
+          sensors: Array<{ x: number; y: number; temp: number; label?: string }>
+        ) => {
+          // Draw walls
+          context.strokeStyle = '#333';
+          context.lineWidth = 2;
+          walls.forEach(wall => {
+            context.beginPath();
+            context.moveTo(wall.x1, wall.y1);
+            context.lineTo(wall.x2, wall.y2);
+            context.stroke();
+          });
+
+          // Draw sensors
+          sensors.forEach(sensor => {
+            // Draw outer clickable area hint (subtle)
+            context.fillStyle = 'rgba(51, 51, 51, 0.1)';
+            context.beginPath();
+            context.arc(sensor.x, sensor.y, 12, 0, 2 * Math.PI);
+            context.fill();
+            
+            // Draw main sensor circle
+            context.fillStyle = '#fff';
+            context.strokeStyle = '#333';
+            context.lineWidth = 2;
+            context.beginPath();
+            context.arc(sensor.x, sensor.y, 8, 0, 2 * Math.PI);
+            context.fill();
+            context.stroke();
+
+            context.fillStyle = '#333';
+            context.font = '12px system-ui';
+            context.textAlign = 'center';
+            
+            if (show_sensor_temperatures) {
+              context.fillText(`${sensor.temp.toFixed(1)}°`, sensor.x, sensor.y - 12);
+            }
+            
+            if (show_sensor_names && sensor.label) {
+              context.fillText(sensor.label, sensor.x, sensor.y + 24);
+            }
+          });
+        };
+
+        // Start progressive rendering
+        renderAnimationId = requestAnimationFrame(processChunk);
       }
-
-      // Update canvas with current progress
-      ctx.putImageData(imageData, 0, 0);
-
-      // Draw walls and sensors on top (so they're always visible)
-      drawOverlay(ctx, currentConfig.walls, sensorData);
-
-      if (currentRow < height) {
-        // More work to do, schedule next chunk
-        animationId = requestAnimationFrame(processChunk);
-      }
-    };
-
-    // Helper function to draw walls and sensors
-    const drawOverlay = (
-      context: CanvasRenderingContext2D, 
-      walls: Wall[], 
-      sensors: Array<{ x: number; y: number; temp: number; label?: string }>
-    ) => {
-      // Draw walls
-      context.strokeStyle = '#333';
-      context.lineWidth = 2;
-      walls.forEach(wall => {
-        context.beginPath();
-        context.moveTo(wall.x1, wall.y1);
-        context.lineTo(wall.x2, wall.y2);
-        context.stroke();
-      });
-
-      // Draw sensors
-      sensors.forEach(sensor => {
-        // Draw outer clickable area hint (subtle)
-        context.fillStyle = 'rgba(51, 51, 51, 0.1)';
-        context.beginPath();
-        context.arc(sensor.x, sensor.y, 12, 0, 2 * Math.PI);
-        context.fill();
-        
-        // Draw main sensor circle
-        context.fillStyle = '#fff';
-        context.strokeStyle = '#333';
-        context.lineWidth = 2;
-        context.beginPath();
-        context.arc(sensor.x, sensor.y, 8, 0, 2 * Math.PI);
-        context.fill();
-        context.stroke();
-
-        context.fillStyle = '#333';
-        context.font = '12px system-ui';
-        context.textAlign = 'center';
-        
-        if (show_sensor_temperatures) {
-          context.fillText(`${sensor.temp.toFixed(1)}°`, sensor.x, sensor.y - 12);
-        }
-        
-        if (show_sensor_names && sensor.label) {
-          context.fillText(sensor.label, sensor.x, sensor.y + 24);
-        }
-      });
-    };
-
-    // Start progressive calculation
-    animationId = requestAnimationFrame(processChunk);
+    );
 
     // Cleanup function
     return () => {
       isCancelled = true;
-      if (animationId) {
-        cancelAnimationFrame(animationId);
+      if (cancelDistanceGrid) {
+        cancelDistanceGrid();
+      }
+      if (renderAnimationId) {
+        cancelAnimationFrame(renderAnimationId);
       }
     };
   }, [sensorData, currentConfig.walls, width, height, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures]);

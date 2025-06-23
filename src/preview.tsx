@@ -70,8 +70,8 @@ createAndDisplayCard('temperature-map-card', TemperatureMapCard, {
   ],
   sensors: [
     { entity: 'sensor.fake_temperature_1', x: 100, y: 75, label: 'Living Room' },
-    { entity: 'sensor.fake_temperature_2', x: 300, y: 75, label: 'Kitchen' },
+    { entity: 'sensor.fake_temperature_2', x: 300, y: 75 }, // No label - will use entity's friendly_name
     { entity: 'sensor.fake_temperature_3', x: 100, y: 225, label: 'Bedroom' },
-    { entity: 'sensor.fake_temperature_4', x: 300, y: 225, label: 'Bathroom' },
+    { entity: 'sensor.fake_temperature_4', x: 300, y: 225 }, // No label - will use entity's friendly_name
   ],
 } as any);

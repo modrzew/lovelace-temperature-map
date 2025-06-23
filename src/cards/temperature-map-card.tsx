@@ -353,14 +353,20 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
   const sensorData = useMemo(() => 
     sensorStates
       .filter(sensor => sensor.temperature.value && !isNaN(parseFloat(sensor.temperature.value)))
-      .map(sensor => ({
-        x: sensor.x,
-        y: sensor.y,
-        temp: parseFloat(sensor.temperature.value),
-        label: sensor.label,
-        entity: sensor.entity,
-      })),
-    [sensorStates]
+      .map(sensor => {
+        // Use provided label or fallback to entity's friendly name
+        const entityState = hass.value?.states?.[sensor.entity];
+        const displayLabel = sensor.label || entityState?.attributes?.friendly_name || sensor.entity;
+        
+        return {
+          x: sensor.x,
+          y: sensor.y,
+          temp: parseFloat(sensor.temperature.value),
+          label: displayLabel,
+          entity: sensor.entity,
+        };
+      }),
+    [sensorStates, hass.value?.states]
   );
 
   // Helper function to get mouse position and check if over sensor

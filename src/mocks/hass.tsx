@@ -5,10 +5,22 @@ import { createTemperatureSensor } from './sensors';
 export const hass: Partial<HomeAssistant> = {
   states: {
     ...createLight('light.fake_light_1'),
-    ...createTemperatureSensor('sensor.fake_temperature_1', { state: '19.2' }),  // Too cold
-    ...createTemperatureSensor('sensor.fake_temperature_2', { state: '27.1' }),  // Too warm  
-    ...createTemperatureSensor('sensor.fake_temperature_3', { state: '22.5' }),  // Comfortable
-    ...createTemperatureSensor('sensor.fake_temperature_4', { state: '24.8' }),  // Comfortable
+    ...createTemperatureSensor('sensor.fake_temperature_1', { 
+      state: '19.2',
+      attributes: { friendly_name: 'Living Room Temperature', device_class: 'temperature', state_class: 'measurement' }
+    }),  // Too cold
+    ...createTemperatureSensor('sensor.fake_temperature_2', { 
+      state: '27.1',
+      attributes: { friendly_name: 'Kitchen Temperature', device_class: 'temperature', state_class: 'measurement' }
+    }),  // Too warm  
+    ...createTemperatureSensor('sensor.fake_temperature_3', { 
+      state: '22.5',
+      attributes: { friendly_name: 'Bedroom Temperature', device_class: 'temperature', state_class: 'measurement' }
+    }),  // Comfortable
+    ...createTemperatureSensor('sensor.fake_temperature_4', { 
+      state: '24.8',
+      attributes: { friendly_name: 'Bathroom Temperature', device_class: 'temperature', state_class: 'measurement' }
+    }),  // Comfortable
   },
   formatEntityState: (stateObj, state) =>
     (state != null ? state : stateObj.state) ?? '',

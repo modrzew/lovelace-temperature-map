@@ -357,7 +357,7 @@ const interpolateTemperaturePhysics = (
     }
     
     // Sensor dominance radius - within this distance, use exact sensor temperature
-    const dominanceRadius = 12; // Reduced for more natural blending
+    const dominanceRadius = 8; // Smaller radius to match smaller sensor dots
     if (pathDistance <= dominanceRadius) {
       return {
         ...sensor,
@@ -412,6 +412,39 @@ const interpolateTemperaturePhysics = (
   }
   
   return weightedTemp;
+};
+
+// Enhanced interpolation with circular blending around sensors to prevent square artifacts
+const interpolateTemperaturePhysicsWithCircularBlending = (
+  x: number, 
+  y: number, 
+  sensors: Array<{ x: number; y: number; temp: number }>, 
+  distanceGrid: DistanceGrid,
+  ambientTemp: number,
+  walls: Wall[]
+): number => {
+  // First, check if we're very close to any sensor for circular blending
+  for (const sensor of sensors) {
+    const directDistance = Math.sqrt((x - sensor.x) ** 2 + (y - sensor.y) ** 2);
+    const blendRadius = 12; // Circular blending radius around sensor
+    
+    if (directDistance <= blendRadius) {
+      // Get the base interpolated temperature (without this sensor's direct influence)
+      const basTemp = interpolateTemperaturePhysics(x, y, sensors, distanceGrid, ambientTemp, walls);
+      
+      // Calculate circular blend factor (1.0 at sensor center, 0.0 at blend radius)
+      const blendFactor = Math.max(0, (blendRadius - directDistance) / blendRadius);
+      
+      // Apply smooth circular blending curve
+      const smoothBlend = blendFactor * blendFactor * (3 - 2 * blendFactor); // Smoothstep
+      
+      // Blend between sensor temperature and base interpolated temperature
+      return sensor.temp * smoothBlend + basTemp * (1 - smoothBlend);
+    }
+  }
+  
+  // If not near any sensor, use normal physics interpolation
+  return interpolateTemperaturePhysics(x, y, sensors, distanceGrid, ambientTemp, walls);
 };
 
 const temperatureToColor = (temp: number, tooCold: number, tooWarm: number): string => {
@@ -755,7 +788,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     // Use current sensorData for real-time interaction, not debounced
     const hoveredSensor = sensorData.find(sensor => {
       const distance = Math.sqrt((x - sensor.x) ** 2 + (y - sensor.y) ** 2);
-      return distance <= 12; // Clickable radius slightly larger than visual radius (8px)
+      return distance <= 12; // Clickable radius larger than visual radius (6px)
     });
 
     return { x, y, sensor: hoveredSensor };
@@ -808,9 +841,8 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     canvas.width = width;
     canvas.height = height;
 
-    // Show initial loading placeholder
-    ctx.fillStyle = '#f5f5f5';
-    ctx.fillRect(0, 0, width, height);
+    // Show initial loading placeholder with transparent background
+    ctx.clearRect(0, 0, width, height);
     ctx.fillStyle = '#666';
     ctx.font = '16px system-ui';
     ctx.textAlign = 'center';
@@ -843,12 +875,12 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
         context.arc(sensor.x, sensor.y, 12, 0, 2 * Math.PI);
         context.fill();
         
-        // Draw main sensor circle
+        // Draw main sensor circle (smaller)
         context.fillStyle = '#fff';
         context.strokeStyle = '#333';
-        context.lineWidth = 2;
+        context.lineWidth = 1.5;
         context.beginPath();
-        context.arc(sensor.x, sensor.y, 8, 0, 2 * Math.PI);
+        context.arc(sensor.x, sensor.y, 6, 0, 2 * Math.PI);
         context.fill();
         context.stroke();
 
@@ -880,10 +912,9 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
       width,
       height,
       (progress: number, stage: string) => {
-        // Update progress on main canvas during computation
+        // Update progress on main canvas during computation with transparent background
         if (isCancelled) return;
-        ctx.fillStyle = '#f5f5f5';
-        ctx.fillRect(0, 0, width, height);
+        ctx.clearRect(0, 0, width, height);
         ctx.fillStyle = '#666';
         ctx.font = '16px system-ui';
         ctx.textAlign = 'center';
@@ -895,8 +926,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
         if (isCancelled) return;
 
         // Distance grid is ready, now render entire map to off-screen canvas
-        ctx.fillStyle = '#f5f5f5';
-        ctx.fillRect(0, 0, width, height);
+        ctx.clearRect(0, 0, width, height);
         ctx.fillStyle = '#666';
         ctx.font = '16px system-ui';
         ctx.textAlign = 'center';
@@ -912,22 +942,24 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
             const index = (y * width + x) * 4;
             
             if (!isPointInsideBoundary(x, y, currentConfig.walls, width, height, debouncedSensorData)) {
-              // Outside boundary - make it white/transparent
-              data[index] = 255;     // Red
-              data[index + 1] = 255; // Green
-              data[index + 2] = 255; // Blue
+              // Outside boundary - make it completely transparent
+              data[index] = 0;       // Red
+              data[index + 1] = 0;   // Green
+              data[index + 2] = 0;   // Blue
               data[index + 3] = 0;   // Alpha (transparent)
             } else {
-              // Inside boundary - interpolate temperature and color
-              const temp = interpolateTemperaturePhysics(x, y, debouncedSensorData, distanceGrid, ambient_temp, currentConfig.walls);
+              // Inside boundary - white background with opaque heat map colors
+              const temp = interpolateTemperaturePhysicsWithCircularBlending(x, y, debouncedSensorData, distanceGrid, ambient_temp, currentConfig.walls);
               const color = temperatureToColor(temp, too_cold_temp, too_warm_temp);
               
               const rgb = color.match(/\d+/g)?.map(Number) || [0, 0, 0];
               
-              data[index] = rgb[0];     // Red
-              data[index + 1] = rgb[1]; // Green
-              data[index + 2] = rgb[2]; // Blue
-              data[index + 3] = 120;    // Alpha (semi-transparent)
+              // Blend heat map color with white background for full opacity
+              const alpha = 0.7; // Heat map color strength
+              data[index] = Math.round(rgb[0] * alpha + 255 * (1 - alpha));     // Red blended with white
+              data[index + 1] = Math.round(rgb[1] * alpha + 255 * (1 - alpha)); // Green blended with white
+              data[index + 2] = Math.round(rgb[2] * alpha + 255 * (1 - alpha)); // Blue blended with white
+              data[index + 3] = 255;    // Alpha (fully opaque)
             }
           }
         }
@@ -954,7 +986,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
   }, [debouncedSensorData, currentConfig.walls, width, height, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures]);
 
   return (
-    <Card className="h-full">
+    <Card className="h-full bg-transparent border-transparent shadow-none">
       <CardContent className="p-4">
         {currentConfig.title && (
           <h3 className="text-lg font-semibold mb-4">{currentConfig.title}</h3>
@@ -962,8 +994,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
         <div className="flex justify-center">
           <canvas
             ref={canvasRef}
-            style={{ maxWidth: '100%', height: 'auto' }}
-            className="border rounded"
+            style={{ maxWidth: '100%', height: 'auto', background: 'transparent' }}
             onClick={handleCanvasClick}
             onMouseMove={handleCanvasMouseMove}
           />

@@ -7,6 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `pnpm dev` - Start development server and view custom cards at http://localhost:5173
 - `pnpm build` - Build the project for production (outputs to dist/)
 - `pnpm lint` - Run TypeScript compiler and ESLint checks
+- `pnpm test` - Run tests in watch mode (Vitest)
+- `pnpm test:run` - Run tests once
+- `pnpm test:ui` - Run tests with UI interface
 - `pnpm preview` - Preview the built application
 - Use `http://localhost:5173/src/ha-dev.ts` in Home Assistant to view custom cards during development
 

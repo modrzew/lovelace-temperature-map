@@ -1,5 +1,5 @@
 {
-  "name": "Custom Cards",
+  "name": "Temperature map",
   "render_readme": true,
   "filename": "lovelace-temperature-map.js"
 }

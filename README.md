@@ -1,109 +1,100 @@
-# Home Assistant Custom Cards
-This project uses React.
+# Lovelace Temperature Map Card
 
-To start development, run these commands:
-- `pnpm dev` to start the development server and view custom cards written in preview.tsx on http://localhost:5173
+A Home Assistant custom card that displays temperature sensors as a physics-based heat map with wall blocking and realistic temperature flow. Visualize temperature distribution throughout your home with interactive sensor placement and visual wall layout editing.
 
-Use http://localhost:5173/src/ha-dev.ts in Home Assistant to view the custom cards.
+## Features
 
-## Wall Layout Editor
+- **Physics-based temperature interpolation** - Uses flood fill algorithms for realistic heat distribution
+- **Wall blocking** - Walls properly block heat flow between rooms
+- **Interactive sensor display** - Click sensors to see details and temperatures
+- **Visual wall editor** - Design room layouts with real-time preview
+- **Responsive design** - Automatically sizes to fit your dashboard
+- **Comprehensive testing** - 97 tests covering all functionality
 
-The project includes a visual wall editor to help design temperature map layouts. It's included in the preview page:
+## Quick Start
+
+1. **Download** the latest `lovelace-temperature-map.js` from [Releases](../../releases)
+2. **Add to Home Assistant** in Configuration → Lovelace Dashboards → Resources
+3. **Add to dashboard** with type: `custom:temperature-map-card`
+
+## Development
+
+To start development:
 
 ```bash
+pnpm install
 pnpm dev
 ```
 
-Then visit http://localhost:5173 and scroll down to see the wall editor below the card previews.
+- Visit http://localhost:5173 to see the card preview
+- Use http://localhost:5173/src/ha-dev.ts in Home Assistant for testing
+- The wall editor is included in the preview page for designing layouts
 
-Features:
-- Real-time visual preview of wall configurations
-- Grid reference for precise positioning
-- JavaScript syntax highlighting and error checking
-- Copy-to-clipboard for easy configuration transfer
-- Interactive canvas with wall indices for easy identification
+### Development Commands
 
-The editor helps you design the `walls` array for the temperature map card configuration.
+- `pnpm dev` - Start development server with card preview
+- `pnpm build` - Build production version
+- `pnpm test` - Run tests in watch mode
+- `pnpm test:run` - Run tests once
+- `pnpm lint` - Run TypeScript and ESLint checks
 
-## Releases and Versioning
+## Card Configuration
 
-This project uses GitHub Actions to automatically build and release the custom cards when a new version tag is pushed. To create a new release:
-
-1. Make your changes to the codebase
-2. Run one of the following commands to update the version in `package.json`, create a git tag, and push everything to GitHub:
-   ```bash
-   # For patch releases (bug fixes)
-   pnpm version patch
-
-   # For minor releases (new features)
-   pnpm version minor
-
-   # For major releases (breaking changes)
-   pnpm version major
-   ```
-
-The `postversion` script will automatically push both the code changes and the new tag to GitHub.
-
-The GitHub Actions workflow will then automatically:
-- Build the project
-- Create a GitHub release
-- Attach the built files (`dist/lovelace-temperature-map.js` and `dist/lovelace-temperature-map.js.map`) to the release
-
-Users can then download the latest release files directly from GitHub.
-
-## References
-- https://github.com/shannonhochkins/ha-component-kit/tree/master/packages/core/src/hooks
-
-
-# Archived
-
-# React + TypeScript + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```yaml
+type: custom:temperature-map-card
+title: "Living Room Temperature"
+width: 400
+height: 300
+min_temp: 18
+max_temp: 28
+walls:
+  - { x1: 50, y1: 50, x2: 350, y2: 50 }
+  - { x1: 350, y1: 50, x2: 350, y2: 250 }
+sensors:
+  - { entity: "sensor.living_room_temp", x: 100, y: 100 }
+  - { entity: "sensor.kitchen_temp", x: 250, y: 150, label: "Kitchen" }
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+## Wall Layout Editor
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+The integrated wall editor helps you design temperature map layouts:
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
+- **Real-time preview** of wall configurations
+- **Grid reference** for precise positioning  
+- **JavaScript syntax highlighting** and error checking
+- **Copy-to-clipboard** for easy configuration transfer
+- **Interactive canvas** with wall indices for identification
+
+Access the editor by running `pnpm dev` and visiting http://localhost:5173
+
+## Architecture
+
+Built with modern web technologies:
+
+- **React 19** with TypeScript for component development
+- **Vite** for fast development and optimized builds
+- **Vitest** for comprehensive testing
+- **Home Assistant integration** via web components
+- **Physics-based algorithms** for realistic heat simulation
+
+## Releases
+
+This project uses semantic versioning with automated GitHub releases:
+
+```bash
+# Create new release
+pnpm version patch|minor|major
+# Automatically pushes code and tags, triggers build and release
 ```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass with `pnpm test:run`
+5. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details.

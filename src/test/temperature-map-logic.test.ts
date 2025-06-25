@@ -258,7 +258,7 @@ describe('Temperature Map Component Logic', () => {
       const event = { clientX: 150, clientY: 100 };
       const canvasRect = { left: 50, top: 50, width: 200, height: 150 };
       const canvasSize = { width: 400, height: 300 };
-      const sensors: any[] = [];
+      const sensors: Array<{ x: number; y: number; temp: number; label: string; entity: string }> = [];
       
       const result = getMousePositionAndSensor(event, canvasRect, canvasSize, sensors);
       
@@ -298,7 +298,7 @@ describe('Temperature Map Component Logic', () => {
       const event = { clientX: 100, clientY: 75 };
       const canvasRect = { left: 0, top: 0, width: 200, height: 150 }; // Half size
       const canvasSize = { width: 400, height: 300 }; // Full size
-      const sensors: any[] = [];
+      const sensors: Array<{ x: number; y: number; temp: number; label: string; entity: string }> = [];
       
       const result = getMousePositionAndSensor(event, canvasRect, canvasSize, sensors);
       
@@ -328,7 +328,7 @@ describe('Temperature Map Component Logic', () => {
   
   describe('Configuration Defaults', () => {
     // Test the default value assignment logic
-    const applyConfigDefaults = (config: any) => {
+    const applyConfigDefaults = (config: Record<string, unknown>) => {
       return {
         min_temp: 15,
         max_temp: 30,
@@ -518,7 +518,7 @@ describe('Temperature Map Component Logic', () => {
         canvas.width = targetWidth;
         canvas.height = targetHeight;
         return true;
-      } catch (error) {
+      } catch {
         return false;
       }
     };
@@ -552,7 +552,7 @@ describe('Temperature Map Component Logic', () => {
     });
 
     // Test context validation logic
-    const validateCanvasContext = (context: any) => {
+    const validateCanvasContext = (context: unknown) => {
       if (!context) return false;
       
       const requiredMethods = [
@@ -561,7 +561,7 @@ describe('Temperature Map Component Logic', () => {
         'fillText', 'createImageData', 'putImageData'
       ];
       
-      return requiredMethods.every(method => typeof context[method] === 'function');
+      return requiredMethods.every(method => typeof (context as Record<string, unknown>)[method] === 'function');
     };
 
     it('should validate complete canvas context', () => {
@@ -580,7 +580,7 @@ describe('Temperature Map Component Logic', () => {
         putImageData: vi.fn()
       };
       
-      expect(validateCanvasContext(mockContext)).toBe(true);
+      expect(validateCanvasContext(mockContext as unknown)).toBe(true);
     });
 
     it('should reject incomplete canvas context', () => {
@@ -590,7 +590,7 @@ describe('Temperature Map Component Logic', () => {
         // Missing other required methods
       };
       
-      expect(validateCanvasContext(incompleteContext)).toBe(false);
+      expect(validateCanvasContext(incompleteContext as unknown)).toBe(false);
     });
 
     it('should reject null context', () => {

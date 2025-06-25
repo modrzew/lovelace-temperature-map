@@ -19,7 +19,7 @@ const distanceGridCache = new Map<string, DistanceGrid>();
  * @param gridScale Scale factor for grid resolution
  * @returns 2D array of distances from sensor to each grid point
  */
-export const floodFillDistances = (
+const floodFillDistances = (
   sensorX: number,
   sensorY: number,
   walls: Wall[],
@@ -316,7 +316,7 @@ export const isPointInsideBoundary = (
  * @param sensors Array of sensor positions for boundary guidance
  * @returns Set of boundary point coordinates as strings
  */
-export const computeBoundaryPoints = (
+const computeBoundaryPoints = (
   walls: Wall[], 
   canvasWidth: number, 
   canvasHeight: number, 

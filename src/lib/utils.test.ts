@@ -10,7 +10,9 @@ describe('Utils', () => {
     })
 
     it('should handle conditional classes', () => {
-      const result = cn('always', false && 'never', true && 'sometimes')
+      const condition1 = false;
+      const condition2 = true;
+      const result = cn('always', condition1 && 'never', condition2 && 'sometimes')
       expect(result).toContain('always')
       expect(result).toContain('sometimes')
       expect(result).not.toContain('never')

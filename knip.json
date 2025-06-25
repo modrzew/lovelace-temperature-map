@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/build.ts",
+    "src/ha-dev.ts", 
+    "src/preview.tsx",
+    "src/wall-editor.tsx"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "!src/test/**"
+  ],
+  "ignore": [
+    "src/test/**",
+    "**/*.test.{ts,tsx}",
+    "**/*.spec.{ts,tsx}"
+  ],
+  "ignoreDependencies": []
+}

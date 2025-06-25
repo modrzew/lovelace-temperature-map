@@ -90,15 +90,6 @@ export interface HomeAssistant {
   formatEntityAttributeName(stateObj: HassEntity, attribute: string): string;
 }
 
-export interface CustomCardEntry {
-  type: string;
-  name?: string;
-  description?: string;
-  preview?: boolean;
-  documentationURL?: string;
-}
-
-//github.com/home-assistant/frontend/blob/8cb44521264bade0236bee4f6e0528592f9bab3d/src/data/entity_registry.ts#L15
 export interface EntityRegistryDisplayEntry {
   entity_id: string;
   name?: string;
@@ -107,9 +98,9 @@ export interface EntityRegistryDisplayEntry {
   area_id?: string;
   labels: string[];
   hidden?: boolean;
-  // entity_category?: EntityCategory;
   translation_key?: string;
   platform?: string;
   display_precision?: number;
 }
+
 

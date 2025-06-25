@@ -4,7 +4,6 @@ import { ElementType } from 'react';
 import { createReactCard } from '@/lib/create-react-card';
 import styles from './index.css?inline';
 import './preview.css';
-import { HomeAssistant } from './lib/types';
 import { hass } from './mocks/hass';
 import { TemperatureMapCard } from './cards/temperature-map-card';
 import WallEditor from './wall-editor';
@@ -17,7 +16,7 @@ const rootEl = document.getElementById('root')!;
 const createAndDisplayCard = (
   cardName: string,
   ReactComponent: ElementType,
-  config?: HomeAssistant['config'],
+  config?: unknown,
   parentElement: HTMLElement = rootEl,
 ) => {
   createReactCard(cardName, ReactComponent, styleSheet);
@@ -54,7 +53,7 @@ createAndDisplayCard('temperature-map-card', TemperatureMapCard, {
     { entity: 'sensor.fake_temperature_3', x: 100, y: 225, label: 'Bedroom' },
     { entity: 'sensor.fake_temperature_4', x: 300, y: 225 }, // No label - will use entity's friendly_name
   ],
-} as any);
+});
 
 // Add wall editor at the bottom
 const wallEditorContainer = document.createElement('div');

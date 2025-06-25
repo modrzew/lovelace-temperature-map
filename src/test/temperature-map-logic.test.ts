@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
 // =============================================================================
 // COMPONENT LOGIC TESTS (WITHOUT REACT DEPENDENCIES)
@@ -539,10 +539,10 @@ describe('Temperature Map Component Logic', () => {
 
     it('should handle canvas setup errors', () => {
       const mockCanvas = {
-        set width(value: number) {
+        set width(_value: number) {
           throw new Error('Canvas setup failed');
         },
-        set height(value: number) {
+        set height(_value: number) {
           throw new Error('Canvas setup failed');
         }
       };

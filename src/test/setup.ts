@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom'
+import { vi } from 'vitest'
 
 // Mock Home Assistant globals that might be expected in tests
 Object.defineProperty(window, 'customElements', {

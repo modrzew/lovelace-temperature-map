@@ -1,218 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-// =============================================================================
-// ISOLATED UTILITY FUNCTIONS FOR TESTING
-// =============================================================================
-// These are extracted from the temperature-map-card component for testing
-// After refactoring, these will be imported from separate utility modules
+// Import utility functions from extracted modules
+import type { Wall, DistanceGrid } from '@/lib/temperature-map/types'
+import { lineIntersection, lineIntersectsWalls, checkWallProximity } from '@/lib/temperature-map/geometry'
+import { temperatureToColor, interpolateTemperaturePhysics } from '@/lib/temperature-map/temperature'
+import { getInterpolatedDistance } from '@/lib/temperature-map/distance'
 
-// Geometric calculation utilities
-const lineIntersection = (
-  x1: number, y1: number, x2: number, y2: number,
-  x3: number, y3: number, x4: number, y4: number
-): { x: number; y: number } | null => {
-  const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-  if (Math.abs(denom) < 1e-10) return null;
-  
-  const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
-  const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
-  
-  if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
-    return {
-      x: x1 + t * (x2 - x1),
-      y: y1 + t * (y2 - y1)
-    };
-  }
-  return null;
-};
-
-const lineIntersectsWalls = (
-  x1: number, y1: number, x2: number, y2: number,
-  walls: Array<{ x1: number; y1: number; x2: number; y2: number }>
-): boolean => {
-  for (const wall of walls) {
-    const intersection = lineIntersection(x1, y1, x2, y2, wall.x1, wall.y1, wall.x2, wall.y2);
-    if (intersection) {
-      const t1 = Math.abs(x2 - x1) > 0.001 ? (intersection.x - x1) / (x2 - x1) : 0;
-      const t2 = Math.abs(y2 - y1) > 0.001 ? (intersection.y - y1) / (y2 - y1) : 0;
-      const tWall1 = Math.abs(wall.x2 - wall.x1) > 0.001 ? (intersection.x - wall.x1) / (wall.x2 - wall.x1) : 0;
-      const tWall2 = Math.abs(wall.y2 - wall.y1) > 0.001 ? (intersection.y - wall.y1) / (wall.y2 - wall.y1) : 0;
-      
-      const t = Math.abs(x2 - x1) > Math.abs(y2 - y1) ? t1 : t2;
-      const tWall = Math.abs(wall.x2 - wall.x1) > Math.abs(wall.y2 - wall.y1) ? tWall1 : tWall2;
-      
-      if (t >= 0 && t <= 1 && tWall >= 0 && tWall <= 1) {
-        return true;
-      }
-    }
-  }
-  return false;
-};
-
-const checkWallProximity = (
-  x: number, 
-  y: number, 
-  walls: Array<{ x1: number; y1: number; x2: number; y2: number }>, 
-  radius: number
-): boolean => {
-  for (const wall of walls) {
-    const A = x - wall.x1;
-    const B = y - wall.y1;
-    const C = wall.x2 - wall.x1;
-    const D = wall.y2 - wall.y1;
-    
-    const dot = A * C + B * D;
-    const lenSq = C * C + D * D;
-    
-    if (lenSq === 0) {
-      const distance = Math.sqrt(A * A + B * B);
-      if (distance <= radius) return true;
-      continue;
-    }
-    
-    let param = dot / lenSq;
-    param = Math.max(0, Math.min(1, param));
-    
-    const xx = wall.x1 + param * C;
-    const yy = wall.y1 + param * D;
-    
-    const dx = x - xx;
-    const dy = y - yy;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    
-    if (distance <= radius) return true;
-  }
-  return false;
-};
-
-// Temperature and color processing utilities
-const temperatureToColor = (temp: number, tooCold: number, tooWarm: number): string => {
-  if (temp <= tooCold) {
-    return 'rgb(0, 0, 255)';
-  }
-  
-  if (temp >= tooWarm) {
-    return 'rgb(255, 0, 0)';
-  }
-  
-  const normalizedTemp = (temp - tooCold) / (tooWarm - tooCold);
-  
-  const colors = [
-    { r: 0, g: 0, b: 255 },     // Blue
-    { r: 0, g: 255, b: 0 },     // Green
-    { r: 255, g: 255, b: 0 },   // Yellow
-    { r: 255, g: 0, b: 0 }      // Red
-  ];
-  
-  const scaledTemp = normalizedTemp * (colors.length - 1);
-  const index = Math.floor(scaledTemp);
-  const fraction = scaledTemp - index;
-  
-  if (index >= colors.length - 1) {
-    const color = colors[colors.length - 1];
-    return `rgb(${color.r}, ${color.g}, ${color.b})`;
-  }
-  
-  const color1 = colors[index];
-  const color2 = colors[index + 1];
-  
-  const r = Math.round(color1.r + (color2.r - color1.r) * fraction);
-  const g = Math.round(color1.g + (color2.g - color1.g) * fraction);
-  const b = Math.round(color1.b + (color2.b - color1.b) * fraction);
-  
-  return `rgb(${r}, ${g}, ${b})`;
-};
-
-const interpolateTemperaturePhysics = (
-  x: number,
-  y: number,
-  sensors: Array<{ x: number; y: number; temp: number }>,
-  ambientTemp: number = 22
-): number => {
-  if (sensors.length === 0) return ambientTemp;
-  
-  const sensorInfluences = sensors.map((sensor) => {
-    const distance = Math.sqrt((x - sensor.x) ** 2 + (y - sensor.y) ** 2);
-    const dominanceRadius = 8;
-    
-    if (distance <= dominanceRadius) {
-      return {
-        ...sensor,
-        influence: 100,
-        distance
-      };
-    }
-    
-    const minDistance = 1;
-    const effectiveDistance = Math.max(distance, minDistance);
-    const decayFactor = 0.008;
-    const influence = Math.exp(-effectiveDistance * decayFactor);
-    
-    return {
-      ...sensor,
-      influence,
-      distance: effectiveDistance
-    };
-  });
-  
-  const reachableSensors = sensorInfluences.filter(s => s.influence > 0);
-  
-  if (reachableSensors.length === 0) {
-    return ambientTemp;
-  }
-  
-  const totalInfluence = reachableSensors.reduce((sum, s) => sum + s.influence, 0);
-  const weightedTemp = reachableSensors.reduce((sum, s) => 
-    sum + (s.temp * s.influence), 0
-  ) / totalInfluence;
-  
-  const influenceThreshold = 0.02;
-  if (totalInfluence < influenceThreshold) {
-    const blendFactor = Math.pow(totalInfluence / influenceThreshold, 0.5);
-    return weightedTemp * blendFactor + ambientTemp * (1 - blendFactor);
-  }
-  
-  return weightedTemp;
-};
-
-// Distance grid utilities
-const getInterpolatedDistance = (
-  x: number,
-  y: number,
-  sensorIndex: number,
-  distanceGrid: { distances: number[][][]; width: number; height: number }
-): number => {
-  const gridScale = 1;
-  const gx = x / gridScale;
-  const gy = y / gridScale;
-  
-  const x1 = Math.max(0, Math.min(Math.floor(gx), distanceGrid.width - 1));
-  const y1 = Math.max(0, Math.min(Math.floor(gy), distanceGrid.height - 1));
-  const x2 = Math.max(0, Math.min(x1 + 1, distanceGrid.width - 1));
-  const y2 = Math.max(0, Math.min(y1 + 1, distanceGrid.height - 1));
-  
-  const fx = Math.max(0, Math.min(gx - x1, 1));
-  const fy = Math.max(0, Math.min(gy - y1, 1));
-  
-  const d11 = distanceGrid.distances[sensorIndex][y1]?.[x1];
-  const d21 = distanceGrid.distances[sensorIndex][y1]?.[x2];
-  const d12 = distanceGrid.distances[sensorIndex][y2]?.[x1];
-  const d22 = distanceGrid.distances[sensorIndex][y2]?.[x2];
-  
-  if (d11 === undefined || d11 === Infinity) return Infinity;
-  if (d21 === undefined || d21 === Infinity) return d11;
-  if (d12 === undefined || d12 === Infinity) return d11;
-  if (d22 === undefined || d22 === Infinity) return d21;
-  
-  const d1 = d11 * (1 - fx) + d21 * fx;
-  const d2 = d12 * (1 - fx) + d22 * fx;
-  
-  return d1 * (1 - fy) + d2 * fy;
-};
-
-// Canvas dimension calculation
+// Canvas dimension calculation utility function (kept local as it's not part of core temperature map logic)
 const calculateCanvasDimensions = (
-  walls: Array<{ x1: number; y1: number; x2: number; y2: number }>,
+  walls: Wall[],
   sensors: Array<{ x: number; y: number }>,
   padding: number = 0
 ) => {
@@ -464,15 +260,38 @@ describe('Temperature and Color Processing', () => {
   });
 
   describe('interpolateTemperaturePhysics', () => {
+    // Helper function to create mock distance grid for testing
+    const createMockDistanceGrid = (sensors: Array<{ x: number; y: number }>, width = 50, height = 50): DistanceGrid => {
+      const distances: number[][][] = [];
+      
+      for (let sensorIndex = 0; sensorIndex < sensors.length; sensorIndex++) {
+        const sensor = sensors[sensorIndex];
+        distances[sensorIndex] = [];
+        
+        for (let y = 0; y < height; y++) {
+          distances[sensorIndex][y] = [];
+          for (let x = 0; x < width; x++) {
+            // Simple Euclidean distance for testing
+            const distance = Math.sqrt((x - sensor.x) ** 2 + (y - sensor.y) ** 2);
+            distances[sensorIndex][y][x] = distance;
+          }
+        }
+      }
+      
+      return { distances, width, height };
+    };
+
     it('should return ambient temperature when no sensors', () => {
-      const result = interpolateTemperaturePhysics(10, 10, [], 22);
+      const mockGrid = createMockDistanceGrid([]);
+      const result = interpolateTemperaturePhysics(10, 10, [], mockGrid, 22);
       expect(result).toBe(22);
     });
 
     it('should return sensor temperature when very close to sensor', () => {
       const sensors = [{ x: 10, y: 10, temp: 25 }];
+      const mockGrid = createMockDistanceGrid(sensors);
       // Point very close to sensor (within dominance radius of 8)
-      const result = interpolateTemperaturePhysics(12, 12, sensors, 22);
+      const result = interpolateTemperaturePhysics(12, 12, sensors, mockGrid, 22);
       expect(result).toBeCloseTo(25, 1);
     });
 
@@ -481,16 +300,18 @@ describe('Temperature and Color Processing', () => {
         { x: 0, y: 0, temp: 20 },
         { x: 20, y: 0, temp: 24 }
       ];
+      const mockGrid = createMockDistanceGrid(sensors);
       // Point in middle should be influenced by both sensors
-      const result = interpolateTemperaturePhysics(10, 0, sensors, 22);
+      const result = interpolateTemperaturePhysics(10, 0, sensors, mockGrid, 22);
       expect(result).toBeGreaterThan(20);
       expect(result).toBeLessThan(24);
     });
 
     it('should blend with ambient temperature for weak influences', () => {
       const sensors = [{ x: 0, y: 0, temp: 30 }];
+      const mockGrid = createMockDistanceGrid(sensors, 2000, 2000); // Large grid for far distances
       // Point very far from sensor should blend with ambient
-      const result = interpolateTemperaturePhysics(1000, 1000, sensors, 22);
+      const result = interpolateTemperaturePhysics(1000, 1000, sensors, mockGrid, 22);
       expect(result).toBeCloseTo(22, 0); // Should be close to ambient (within 0.5 degrees)
     });
 
@@ -499,13 +320,15 @@ describe('Temperature and Color Processing', () => {
         { x: 5, y: 5, temp: 23 },
         { x: 15, y: 5, temp: 23 }
       ];
-      const result = interpolateTemperaturePhysics(10, 5, sensors, 22);
+      const mockGrid = createMockDistanceGrid(sensors);
+      const result = interpolateTemperaturePhysics(10, 5, sensors, mockGrid, 22);
       expect(result).toBeCloseTo(23, 1);
     });
 
     it('should handle sensor at same position as query point', () => {
       const sensors = [{ x: 10, y: 10, temp: 25 }];
-      const result = interpolateTemperaturePhysics(10, 10, sensors, 22);
+      const mockGrid = createMockDistanceGrid(sensors);
+      const result = interpolateTemperaturePhysics(10, 10, sensors, mockGrid, 22);
       expect(result).toBeCloseTo(25, 1);
     });
   });

@@ -47,7 +47,7 @@ The `postversion` script will automatically push both the code changes and the n
 The GitHub Actions workflow will then automatically:
 - Build the project
 - Create a GitHub release
-- Attach the built files (`dist/ha-custom-cards.js` and `dist/ha-custom-cards.js.map`) to the release
+- Attach the built files (`dist/lovelace-temperature-map.js` and `dist/lovelace-temperature-map.js.map`) to the release
 
 Users can then download the latest release files directly from GitHub.
 

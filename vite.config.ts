@@ -30,7 +30,7 @@ export default defineConfig({
           if (chunkInfo.name === 'dev') {
             return 'ha-dev.js';
           }
-          return 'ha-custom-cards.js';
+          return 'lovelace-temperature-map.js';
         },
         chunkFileNames: `[name].js`,
         assetFileNames: `[hash].[ext]`,

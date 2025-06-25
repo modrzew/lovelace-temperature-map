@@ -49,8 +49,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            dist/ha-custom-cards.js
-            dist/ha-custom-cards.js.map
+            dist/lovelace-temperature-map.js
+            dist/lovelace-temperature-map.js.map
           draft: false
           prerelease: false
           generate_release_notes: true

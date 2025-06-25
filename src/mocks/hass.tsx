@@ -1,10 +1,8 @@
 import { HomeAssistant } from '@/lib/types';
-import { createLight } from './entities';
 import { createTemperatureSensor } from './sensors';
 
 export const hass: Partial<HomeAssistant> = {
   states: {
-    ...createLight('light.fake_light_1'),
     ...createTemperatureSensor('sensor.fake_temperature_1', { 
       state: '20.6',
       attributes: { friendly_name: 'Living Room Temperature', device_class: 'temperature', state_class: 'measurement' }

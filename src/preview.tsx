@@ -1,12 +1,11 @@
-import { CarouselCard } from '@/cards/carousel-card';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { ElementType } from 'react';
 import { createReactCard } from '@/lib/create-react-card';
 import styles from './index.css?inline';
 import './preview.css';
-import { ElementType } from 'react';
-import { RoomCard } from '@/cards/room-card';
 import { HomeAssistant } from './lib/types';
 import { hass } from './mocks/hass';
-import { DoorOpenCard } from './cards/door-open-card';
 import { TemperatureMapCard } from './cards/temperature-map-card';
 import WallEditor from './wall-editor';
 
@@ -29,26 +28,6 @@ const createAndDisplayCard = (
   (element as any).hass = hass;
   parentElement.appendChild(element);
 };
-
-const carouselCardContainer = document.createElement('div');
-rootEl.appendChild(carouselCardContainer);
-carouselCardContainer.style.minHeight = '300px';
-createAndDisplayCard('carousel-card', CarouselCard, {
-  entities: [],
-  options: {},
-} as any, carouselCardContainer);
-
-createAndDisplayCard('room-card', RoomCard, {
-  title: 'Living room',
-  subtitle: '',
-  temperature: 23,
-  light_entity: 'light.fake_light_1',
-  temperature_entity: 'sensor.fake_temperature_1',
-} as any);
-
-createAndDisplayCard('door-open-card', DoorOpenCard, {
-  entity: 'sensor.fake_door_open_1',
-} as any);
 
 createAndDisplayCard('temperature-map-card', TemperatureMapCard, {
   title: 'Apartment Temperature Map (Physics-Based)',
@@ -83,9 +62,6 @@ wallEditorContainer.style.marginTop = '2rem';
 wallEditorContainer.style.borderTop = '2px solid #eee';
 wallEditorContainer.style.paddingTop = '2rem';
 rootEl.appendChild(wallEditorContainer);
-
-import React from 'react';
-import { createRoot } from 'react-dom/client';
 
 const wallEditorRoot = createRoot(wallEditorContainer);
 wallEditorRoot.render(React.createElement(WallEditor));

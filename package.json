@@ -16,12 +16,9 @@
   },
   "dependencies": {
     "@preact/signals-react": "^2.2.0",
-    "@radix-ui/react-aspect-ratio": "^1.1.2",
     "@radix-ui/react-slot": "^1.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "date-fns": "^4.1.0",
-    "embla-carousel-react": "^8.5.1",
     "home-assistant-js-websocket": "^9.4.0",
     "lucide-react": "^0.468.0",
     "memoize-one": "^6.0.0",

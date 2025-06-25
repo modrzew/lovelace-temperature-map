@@ -70,7 +70,7 @@ export const interpolateTemperaturePhysics = (
   sensors: Array<{ x: number; y: number; temp: number }>,
   distanceGrid: DistanceGrid,
   ambientTemp: number = 22,
-  _walls: Wall[] = []
+  _walls?: Wall[]
 ): number => {
   if (sensors.length === 0) return ambientTemp;
   

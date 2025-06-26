@@ -7,9 +7,12 @@ describe('Performance Regression Prevention', () => {
     let callCount = 0;
     const delay = 50;
     
-    const createDebounced = (fn: Function, ms: number) => {
+    const createDebounced = <T extends unknown[]>(
+      fn: (...args: T) => void, 
+      ms: number
+    ) => {
       let timeoutId: NodeJS.Timeout;
-      return (...args: any[]) => {
+      return (...args: T) => {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(() => fn(...args), ms);
       };
@@ -36,7 +39,7 @@ describe('Performance Regression Prevention', () => {
     let calculationCount = 0;
     
     // Simple memoization implementation
-    const memoize = <T extends any[], R>(fn: (...args: T) => R) => {
+    const memoize = <T extends unknown[], R>(fn: (...args: T) => R) => {
       const cache = new Map<string, R>();
       return (...args: T): R => {
         const key = JSON.stringify(args);
@@ -49,7 +52,14 @@ describe('Performance Regression Prevention', () => {
       };
     };
 
-    const expensiveCalc = memoize((walls: any[], rotation: number) => {
+    interface Wall {
+      x1: number;
+      y1: number; 
+      x2: number;
+      y2: number;
+    }
+
+    const expensiveCalc = memoize((walls: Wall[], rotation: number) => {
       calculationCount++;
       return walls.map(w => ({ ...w, rotation }));
     });
@@ -124,9 +134,9 @@ describe('Performance Regression Prevention', () => {
     
     // Simulate useEffect dependency checking
     const simulateEffect = (() => {
-      let lastDeps: any[] | null = null;
+      let lastDeps: unknown[] | null = null;
       
-      return (deps: any[]) => {
+      return (deps: unknown[]) => {
         // Use shallow comparison like React does
         if (!lastDeps || lastDeps.length !== deps.length || 
             lastDeps.some((dep, i) => dep !== deps[i])) {

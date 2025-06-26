@@ -93,6 +93,28 @@ const useDebouncedSensorData = (sensorData: Array<{ x: number; y: number; temp: 
   return debouncedSensorData;
 };
 
+// Custom hook for debouncing computation-triggering values
+const useDebouncedComputationConfig = (
+  walls: Wall[],
+  sensors: Array<{ x: number; y: number; temp: number; label: string; entity: string }>, 
+  dimensions: { width: number; height: number },
+  delay: number = 1000 // Shorter delay for config changes
+) => {
+  const [debouncedConfig, setDebouncedConfig] = useState({ walls, sensors, dimensions });
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedConfig({ walls, sensors, dimensions });
+    }, delay);
+    
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [walls, sensors, dimensions, delay]);
+  
+  return debouncedConfig;
+};
+
 export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => {
   useSignals();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -170,13 +192,20 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
   const dimensions = getRotatedDimensions(originalDimensions.width, originalDimensions.height, rotation);
   const { width, height } = dimensions;
   
-  // Create rotated walls and sensors
-  const rotatedWalls = currentConfig.walls.map(wall => 
-    rotateWall(wall, originalDimensions.width, originalDimensions.height, rotation)
+  // Create rotated walls with stable reference when walls/rotation unchanged
+  const rotatedWalls = useMemo(() => 
+    currentConfig.walls.map(wall => 
+      rotateWall(wall, originalDimensions.width, originalDimensions.height, rotation)
+    ), 
+    [currentConfig.walls, originalDimensions.width, originalDimensions.height, rotation]
   );
   
-  const rotatedSensors = currentConfig.sensors.map(sensor => 
-    rotateSensor(sensor, originalDimensions.width, originalDimensions.height, rotation)
+  // Create rotated sensors with stable reference when sensor positions/rotation unchanged
+  const rotatedSensors = useMemo(() => 
+    currentConfig.sensors.map(sensor => 
+      rotateSensor(sensor, originalDimensions.width, originalDimensions.height, rotation)
+    ), 
+    [currentConfig.sensors, originalDimensions.width, originalDimensions.height, rotation]
   );
 
   const sensorData = useMemo(() => 
@@ -203,6 +232,14 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
 
   // Debounce sensor data to prevent frequent re-renders and flickering
   const debouncedSensorData = useDebouncedSensorData(sensorData, 2000);
+  
+  // Debounce computation config to prevent excessive computation restarts
+  const debouncedComputationConfig = useDebouncedComputationConfig(
+    rotatedWalls, 
+    debouncedSensorData, 
+    { width, height },
+    1000 // 1 second delay for computation changes
+  );
 
   // Helper function to get mouse position and check if over sensor
   const getMousePositionAndSensor = (event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -265,20 +302,21 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || debouncedSensorData.length === 0) return;
+    if (!canvas || debouncedComputationConfig.sensors.length === 0) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = debouncedComputationConfig.dimensions.width;
+    canvas.height = debouncedComputationConfig.dimensions.height;
 
     // Show initial loading placeholder with transparent background
-    ctx.clearRect(0, 0, width, height);
+    const { width: canvasWidth, height: canvasHeight } = debouncedComputationConfig.dimensions;
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     ctx.fillStyle = '#666';
     ctx.font = '16px system-ui';
     ctx.textAlign = 'center';
-    ctx.fillText('Computing temperature map...', width / 2, height / 2);
+    ctx.fillText('Computing temperature map...', canvasWidth / 2, canvasHeight / 2);
 
     let cancelDistanceGrid: (() => void) | null = null;
     let isCancelled = false;
@@ -332,48 +370,48 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
 
     // Create off-screen canvas for rendering
     const offscreenCanvas = document.createElement('canvas');
-    offscreenCanvas.width = width;
-    offscreenCanvas.height = height;
+    offscreenCanvas.width = canvasWidth;
+    offscreenCanvas.height = canvasHeight;
     const offscreenCtx = offscreenCanvas.getContext('2d');
     if (!offscreenCtx) return;
 
     // Start distance grid computation
     cancelDistanceGrid = computeDistanceGridAsync(
-      debouncedSensorData,
-      rotatedWalls,
-      width,
-      height,
+      debouncedComputationConfig.sensors,
+      debouncedComputationConfig.walls,
+      canvasWidth,
+      canvasHeight,
       (progress: number, stage: string) => {
         // Update progress on main canvas during computation with transparent background
         if (isCancelled) return;
-        ctx.clearRect(0, 0, width, height);
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
         ctx.fillStyle = '#666';
         ctx.font = '16px system-ui';
         ctx.textAlign = 'center';
-        ctx.fillText(stage, width / 2, height / 2 - 10);
+        ctx.fillText(stage, canvasWidth / 2, canvasHeight / 2 - 10);
         ctx.font = '14px system-ui';
-        ctx.fillText(`${Math.round(progress)}% complete`, width / 2, height / 2 + 10);
+        ctx.fillText(`${Math.round(progress)}% complete`, canvasWidth / 2, canvasHeight / 2 + 10);
       },
       (distanceGrid) => {
         if (isCancelled) return;
 
         // Distance grid is ready, now render entire map to off-screen canvas
-        ctx.clearRect(0, 0, width, height);
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
         ctx.fillStyle = '#666';
         ctx.font = '16px system-ui';
         ctx.textAlign = 'center';
-        ctx.fillText('Rendering temperature map...', width / 2, height / 2);
+        ctx.fillText('Rendering temperature map...', canvasWidth / 2, canvasHeight / 2);
 
         // Render entire map to off-screen canvas at once
-        const imageData = offscreenCtx.createImageData(width, height);
+        const imageData = offscreenCtx.createImageData(canvasWidth, canvasHeight);
         const data = imageData.data;
 
         // Process all pixels at once (no progressive rendering)
-        for (let y = 0; y < height; y++) {
-          for (let x = 0; x < width; x++) {
-            const index = (y * width + x) * 4;
+        for (let y = 0; y < canvasHeight; y++) {
+          for (let x = 0; x < canvasWidth; x++) {
+            const index = (y * canvasWidth + x) * 4;
             
-            if (!isPointInsideBoundary(x, y, rotatedWalls, width, height, debouncedSensorData)) {
+            if (!isPointInsideBoundary(x, y, debouncedComputationConfig.walls, canvasWidth, canvasHeight, debouncedComputationConfig.sensors)) {
               // Outside boundary - make it completely transparent
               data[index] = 0;       // Red
               data[index + 1] = 0;   // Green
@@ -381,7 +419,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
               data[index + 3] = 0;   // Alpha (transparent)
             } else {
               // Inside boundary - white background with opaque heat map colors
-              const temp = interpolateTemperaturePhysicsWithCircularBlending(x, y, debouncedSensorData, distanceGrid, ambient_temp, rotatedWalls);
+              const temp = interpolateTemperaturePhysicsWithCircularBlending(x, y, debouncedComputationConfig.sensors, distanceGrid, ambient_temp, debouncedComputationConfig.walls);
               const color = temperatureToColor(temp, too_cold_temp, too_warm_temp);
               
               const rgb = color.match(/\d+/g)?.map(Number) || [0, 0, 0];
@@ -400,10 +438,10 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
         offscreenCtx.putImageData(imageData, 0, 0);
 
         // Draw walls and sensors on off-screen canvas
-        drawOverlay(offscreenCtx, rotatedWalls, debouncedSensorData);
+        drawOverlay(offscreenCtx, debouncedComputationConfig.walls, debouncedComputationConfig.sensors);
 
         // Copy completed off-screen canvas to main canvas in one operation
-        ctx.clearRect(0, 0, width, height);
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
         ctx.drawImage(offscreenCanvas, 0, 0);
       }
     );
@@ -415,7 +453,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
         cancelDistanceGrid();
       }
     };
-  }, [debouncedSensorData, rotatedWalls, width, height, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures]);
+  }, [debouncedComputationConfig, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures]);
 
   return (
     <Card className="h-full bg-transparent border-transparent shadow-none">

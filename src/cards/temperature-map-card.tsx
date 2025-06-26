@@ -23,8 +23,58 @@ interface Config {
   show_sensor_names?: boolean;
   show_sensor_temperatures?: boolean;
   padding?: number;
+  rotation?: 0 | 90 | 180 | 270;
 }
 
+
+// Coordinate transformation utilities for rotation
+const rotatePoint = (x: number, y: number, width: number, height: number, rotation: 0 | 90 | 180 | 270): { x: number; y: number } => {
+  switch (rotation) {
+    case 0:
+      return { x, y };
+    case 90:
+      return { x: height - y, y: x };
+    case 180:
+      return { x: width - x, y: height - y };
+    case 270:
+      return { x: y, y: width - x };
+    default:
+      return { x, y };
+  }
+};
+
+const rotateWall = (wall: Wall, width: number, height: number, rotation: 0 | 90 | 180 | 270): Wall => {
+  const point1 = rotatePoint(wall.x1, wall.y1, width, height, rotation);
+  const point2 = rotatePoint(wall.x2, wall.y2, width, height, rotation);
+  return {
+    x1: point1.x,
+    y1: point1.y,
+    x2: point2.x,
+    y2: point2.y,
+  };
+};
+
+const rotateSensor = (sensor: TemperatureSensor, width: number, height: number, rotation: 0 | 90 | 180 | 270): TemperatureSensor => {
+  const rotatedPoint = rotatePoint(sensor.x, sensor.y, width, height, rotation);
+  return {
+    ...sensor,
+    x: rotatedPoint.x,
+    y: rotatedPoint.y,
+  };
+};
+
+// Helper function to get dimensions after rotation
+const getRotatedDimensions = (width: number, height: number, rotation: 0 | 90 | 180 | 270): { width: number; height: number } => {
+  switch (rotation) {
+    case 90:
+    case 270:
+      return { width: height, height: width };
+    case 0:
+    case 180:
+    default:
+      return { width, height };
+  }
+};
 
 // Custom hook for debouncing sensor data to prevent flickering
 const useDebouncedSensorData = (sensorData: Array<{ x: number; y: number; temp: number; label: string; entity: string }>, delay: number = 2000) => {
@@ -107,33 +157,48 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     ambient_temp = 22,
     show_sensor_names = true,
     show_sensor_temperatures = true,
-    padding = 0
+    padding = 0,
+    rotation = 0
   } = currentConfig;
 
   // Use provided dimensions or calculate from walls and sensors
-  const dimensions = currentConfig.width && currentConfig.height 
+  const originalDimensions = currentConfig.width && currentConfig.height 
     ? { width: currentConfig.width, height: currentConfig.height }
     : getCanvasDimensions(currentConfig.walls, currentConfig.sensors, padding);
   
+  // Apply rotation to dimensions
+  const dimensions = getRotatedDimensions(originalDimensions.width, originalDimensions.height, rotation);
   const { width, height } = dimensions;
+  
+  // Create rotated walls and sensors
+  const rotatedWalls = currentConfig.walls.map(wall => 
+    rotateWall(wall, originalDimensions.width, originalDimensions.height, rotation)
+  );
+  
+  const rotatedSensors = currentConfig.sensors.map(sensor => 
+    rotateSensor(sensor, originalDimensions.width, originalDimensions.height, rotation)
+  );
 
   const sensorData = useMemo(() => 
     sensorStates
       .filter(sensor => sensor.temperature.value && !isNaN(parseFloat(sensor.temperature.value)))
-      .map(sensor => {
+      .map((sensor, index) => {
         // Use provided label or fallback to entity's friendly name
         const entityState = hass.value?.states?.[sensor.entity];
         const displayLabel = sensor.label || entityState?.attributes?.friendly_name || sensor.entity;
         
+        // Use rotated sensor coordinates
+        const rotatedSensor = rotatedSensors[index];
+        
         return {
-          x: sensor.x,
-          y: sensor.y,
+          x: rotatedSensor.x,
+          y: rotatedSensor.y,
           temp: parseFloat(sensor.temperature.value!), // Non-null assertion since we filtered above
           label: displayLabel,
           entity: sensor.entity,
         };
       }),
-    [sensorStates, hass.value?.states]
+    [sensorStates, hass.value?.states, rotatedSensors]
   );
 
   // Debounce sensor data to prevent frequent re-renders and flickering
@@ -275,7 +340,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     // Start distance grid computation
     cancelDistanceGrid = computeDistanceGridAsync(
       debouncedSensorData,
-      currentConfig.walls,
+      rotatedWalls,
       width,
       height,
       (progress: number, stage: string) => {
@@ -308,7 +373,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
           for (let x = 0; x < width; x++) {
             const index = (y * width + x) * 4;
             
-            if (!isPointInsideBoundary(x, y, currentConfig.walls, width, height, debouncedSensorData)) {
+            if (!isPointInsideBoundary(x, y, rotatedWalls, width, height, debouncedSensorData)) {
               // Outside boundary - make it completely transparent
               data[index] = 0;       // Red
               data[index + 1] = 0;   // Green
@@ -316,7 +381,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
               data[index + 3] = 0;   // Alpha (transparent)
             } else {
               // Inside boundary - white background with opaque heat map colors
-              const temp = interpolateTemperaturePhysicsWithCircularBlending(x, y, debouncedSensorData, distanceGrid, ambient_temp, currentConfig.walls);
+              const temp = interpolateTemperaturePhysicsWithCircularBlending(x, y, debouncedSensorData, distanceGrid, ambient_temp, rotatedWalls);
               const color = temperatureToColor(temp, too_cold_temp, too_warm_temp);
               
               const rgb = color.match(/\d+/g)?.map(Number) || [0, 0, 0];
@@ -335,7 +400,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
         offscreenCtx.putImageData(imageData, 0, 0);
 
         // Draw walls and sensors on off-screen canvas
-        drawOverlay(offscreenCtx, currentConfig.walls, debouncedSensorData);
+        drawOverlay(offscreenCtx, rotatedWalls, debouncedSensorData);
 
         // Copy completed off-screen canvas to main canvas in one operation
         ctx.clearRect(0, 0, width, height);
@@ -350,7 +415,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
         cancelDistanceGrid();
       }
     };
-  }, [debouncedSensorData, currentConfig.walls, width, height, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures]);
+  }, [debouncedSensorData, rotatedWalls, width, height, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures]);
 
   return (
     <Card className="h-full bg-transparent border-transparent shadow-none">

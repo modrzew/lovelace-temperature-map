@@ -28,8 +28,8 @@ const createAndDisplayCard = (
   parentElement.appendChild(element);
 };
 
-createAndDisplayCard('temperature-map-card', TemperatureMapCard, {
-  title: 'Apartment Temperature Map (Physics-Based)',
+const baseConfig = {
+  title: 'Original Temperature Map',
   width: 400,
   height: 300,
   min_temp: 18,
@@ -53,6 +53,63 @@ createAndDisplayCard('temperature-map-card', TemperatureMapCard, {
     { entity: 'sensor.fake_temperature_3', x: 100, y: 225, label: 'Bedroom' },
     { entity: 'sensor.fake_temperature_4', x: 300, y: 225 }, // No label - will use entity's friendly_name
   ],
+};
+
+// Original orientation (0 degrees rotation)
+createAndDisplayCard('temperature-map-card', TemperatureMapCard, {
+  ...baseConfig,
+  rotation: 0,
+});
+
+// Add separator
+const separator1 = document.createElement('div');
+separator1.style.margin = '2rem 0';
+separator1.style.borderTop = '1px solid #ccc';
+separator1.style.textAlign = 'center';
+separator1.style.padding = '1rem';
+separator1.style.color = '#666';
+separator1.textContent = '90° Rotation';
+rootEl.appendChild(separator1);
+
+// 90 degrees rotation
+createAndDisplayCard('temperature-map-card', TemperatureMapCard, {
+  ...baseConfig,
+  title: 'Rotated 90° Clockwise',
+  rotation: 90,
+});
+
+// Add separator
+const separator2 = document.createElement('div');
+separator2.style.margin = '2rem 0';
+separator2.style.borderTop = '1px solid #ccc';
+separator2.style.textAlign = 'center';
+separator2.style.padding = '1rem';
+separator2.style.color = '#666';
+separator2.textContent = '180° Rotation';
+rootEl.appendChild(separator2);
+
+// 180 degrees rotation
+createAndDisplayCard('temperature-map-card', TemperatureMapCard, {
+  ...baseConfig,
+  title: 'Rotated 180°',
+  rotation: 180,
+});
+
+// Add separator
+const separator3 = document.createElement('div');
+separator3.style.margin = '2rem 0';
+separator3.style.borderTop = '1px solid #ccc';
+separator3.style.textAlign = 'center';
+separator3.style.padding = '1rem';
+separator3.style.color = '#666';
+separator3.textContent = '270° Rotation';
+rootEl.appendChild(separator3);
+
+// 270 degrees rotation
+createAndDisplayCard('temperature-map-card', TemperatureMapCard, {
+  ...baseConfig,
+  title: 'Rotated 270° Clockwise',
+  rotation: 270,
 });
 
 // Add wall editor at the bottom

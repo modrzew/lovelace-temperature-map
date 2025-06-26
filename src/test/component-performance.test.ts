@@ -1,4 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Get the directory of this test file
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Test that the component memoization is working
 describe('Component Performance Fixes', () => {
@@ -13,10 +19,8 @@ describe('Component Performance Fixes', () => {
   it('should have useMemo for rotatedWalls in the component', async () => {
     // Read the component source code to verify useMemo is used
     const fs = await import('fs/promises');
-    const componentSource = await fs.readFile(
-      '/Users/modrzew/Projects/lovelace-temperature-map/src/cards/temperature-map-card.tsx', 
-      'utf-8'
-    );
+    const componentPath = join(__dirname, '../cards/temperature-map-card.tsx');
+    const componentSource = await fs.readFile(componentPath, 'utf-8');
     
     // Check that rotatedWalls uses useMemo
     expect(componentSource).toContain('const rotatedWalls = useMemo(');
@@ -25,10 +29,8 @@ describe('Component Performance Fixes', () => {
 
   it('should have useMemo for rotatedSensors in the component', async () => {
     const fs = await import('fs/promises');
-    const componentSource = await fs.readFile(
-      '/Users/modrzew/Projects/lovelace-temperature-map/src/cards/temperature-map-card.tsx', 
-      'utf-8'
-    );
+    const componentPath = join(__dirname, '../cards/temperature-map-card.tsx');
+    const componentSource = await fs.readFile(componentPath, 'utf-8');
     
     // Check that rotatedSensors uses useMemo
     expect(componentSource).toContain('const rotatedSensors = useMemo(');
@@ -37,10 +39,8 @@ describe('Component Performance Fixes', () => {
 
   it('should have debounced computation config', async () => {
     const fs = await import('fs/promises');
-    const componentSource = await fs.readFile(
-      '/Users/modrzew/Projects/lovelace-temperature-map/src/cards/temperature-map-card.tsx', 
-      'utf-8'
-    );
+    const componentPath = join(__dirname, '../cards/temperature-map-card.tsx');
+    const componentSource = await fs.readFile(componentPath, 'utf-8');
     
     // Check that debouncedComputationConfig is used
     expect(componentSource).toContain('useDebouncedComputationConfig');
@@ -49,10 +49,8 @@ describe('Component Performance Fixes', () => {
 
   it('should use debouncedComputationConfig in useEffect', async () => {
     const fs = await import('fs/promises');
-    const componentSource = await fs.readFile(
-      '/Users/modrzew/Projects/lovelace-temperature-map/src/cards/temperature-map-card.tsx', 
-      'utf-8'
-    );
+    const componentPath = join(__dirname, '../cards/temperature-map-card.tsx');
+    const componentSource = await fs.readFile(componentPath, 'utf-8');
     
     // Check that useEffect uses debouncedComputationConfig
     expect(componentSource).toContain('debouncedComputationConfig.sensors');
@@ -65,10 +63,8 @@ describe('Component Performance Fixes', () => {
 
   it('should have reduced useEffect dependencies', async () => {
     const fs = await import('fs/promises');
-    const componentSource = await fs.readFile(
-      '/Users/modrzew/Projects/lovelace-temperature-map/src/cards/temperature-map-card.tsx', 
-      'utf-8'
-    );
+    const componentPath = join(__dirname, '../cards/temperature-map-card.tsx');
+    const componentSource = await fs.readFile(componentPath, 'utf-8');
     
     // Check that the old problematic dependencies are removed
     expect(componentSource).not.toContain('], [debouncedSensorData, rotatedWalls, width, height,');

@@ -115,10 +115,11 @@ const useDebouncedComputationConfig = (
   return debouncedConfig;
 };
 
-export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => {
+export const TemperatureMapCard = ({ hass, config, editMode }: ReactCardProps<Config>) => {
   useSignals();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const currentConfig = config.value;
+  const isEditMode = editMode.value;
   
   // Get sensor states directly from Home Assistant using the entity IDs
   const sensorStates = useMemo(() => 
@@ -300,6 +301,53 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     }
   };
 
+  // Helper function to draw walls and sensors
+  const drawOverlay = (
+    context: CanvasRenderingContext2D, 
+    walls: Wall[], 
+    sensors: Array<{ x: number; y: number; temp: number; label?: string }>
+  ) => {
+    // Draw walls
+    context.strokeStyle = '#333';
+    context.lineWidth = 2;
+    walls.forEach(wall => {
+      context.beginPath();
+      context.moveTo(wall.x1, wall.y1);
+      context.lineTo(wall.x2, wall.y2);
+      context.stroke();
+    });
+
+    // Draw sensors
+    sensors.forEach(sensor => {
+      // Draw outer clickable area hint (subtle)
+      context.fillStyle = 'rgba(51, 51, 51, 0.1)';
+      context.beginPath();
+      context.arc(sensor.x, sensor.y, 12, 0, 2 * Math.PI);
+      context.fill();
+      
+      // Draw main sensor circle (smaller)
+      context.fillStyle = '#fff';
+      context.strokeStyle = '#333';
+      context.lineWidth = 1.5;
+      context.beginPath();
+      context.arc(sensor.x, sensor.y, 6, 0, 2 * Math.PI);
+      context.fill();
+      context.stroke();
+
+      context.fillStyle = '#333';
+      context.font = '12px system-ui';
+      context.textAlign = 'center';
+      
+      if (show_sensor_temperatures) {
+        context.fillText(`${sensor.temp.toFixed(1)}°`, sensor.x, sensor.y - 12);
+      }
+      
+      if (show_sensor_names && sensor.label) {
+        context.fillText(sensor.label, sensor.x, sensor.y + 24);
+      }
+    });
+  };
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || debouncedComputationConfig.sensors.length === 0) return;
@@ -310,8 +358,20 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     canvas.width = debouncedComputationConfig.dimensions.width;
     canvas.height = debouncedComputationConfig.dimensions.height;
 
-    // Show initial loading placeholder with transparent background
     const { width: canvasWidth, height: canvasHeight } = debouncedComputationConfig.dimensions;
+    
+    // Skip expensive heat map computation in edit mode
+    if (isEditMode) {
+      // Clear canvas with light gray background for edit mode
+      ctx.fillStyle = '#f0f0f0';
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      
+      // Draw only walls and sensors for performance
+      drawOverlay(ctx, debouncedComputationConfig.walls, debouncedComputationConfig.sensors);
+      return;
+    }
+
+    // Show initial loading placeholder with transparent background
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     ctx.fillStyle = '#666';
     ctx.font = '16px system-ui';
@@ -320,53 +380,6 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
 
     let cancelDistanceGrid: (() => void) | null = null;
     let isCancelled = false;
-
-    // Helper function to draw walls and sensors
-    const drawOverlay = (
-      context: CanvasRenderingContext2D, 
-      walls: Wall[], 
-      sensors: Array<{ x: number; y: number; temp: number; label?: string }>
-    ) => {
-      // Draw walls
-      context.strokeStyle = '#333';
-      context.lineWidth = 2;
-      walls.forEach(wall => {
-        context.beginPath();
-        context.moveTo(wall.x1, wall.y1);
-        context.lineTo(wall.x2, wall.y2);
-        context.stroke();
-      });
-
-      // Draw sensors
-      sensors.forEach(sensor => {
-        // Draw outer clickable area hint (subtle)
-        context.fillStyle = 'rgba(51, 51, 51, 0.1)';
-        context.beginPath();
-        context.arc(sensor.x, sensor.y, 12, 0, 2 * Math.PI);
-        context.fill();
-        
-        // Draw main sensor circle (smaller)
-        context.fillStyle = '#fff';
-        context.strokeStyle = '#333';
-        context.lineWidth = 1.5;
-        context.beginPath();
-        context.arc(sensor.x, sensor.y, 6, 0, 2 * Math.PI);
-        context.fill();
-        context.stroke();
-
-        context.fillStyle = '#333';
-        context.font = '12px system-ui';
-        context.textAlign = 'center';
-        
-        if (show_sensor_temperatures) {
-          context.fillText(`${sensor.temp.toFixed(1)}°`, sensor.x, sensor.y - 12);
-        }
-        
-        if (show_sensor_names && sensor.label) {
-          context.fillText(sensor.label, sensor.x, sensor.y + 24);
-        }
-      });
-    };
 
     // Create off-screen canvas for rendering
     const offscreenCanvas = document.createElement('canvas');
@@ -453,7 +466,290 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
         cancelDistanceGrid();
       }
     };
-  }, [debouncedComputationConfig, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures]);
+  }, [debouncedComputationConfig, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures, isEditMode]);
+
+  // Visual Editor state and handlers for edit mode
+  const [editConfig, setEditConfig] = useState<Config>(currentConfig);
+  const [wallsText, setWallsText] = useState(JSON.stringify(currentConfig.walls, null, 2));
+  const [sensorsText, setSensorsText] = useState(JSON.stringify(currentConfig.sensors, null, 2));
+  const [configError, setConfigError] = useState<string>('');
+
+  // Update local edit state when config changes
+  useEffect(() => {
+    setEditConfig(currentConfig);
+    setWallsText(JSON.stringify(currentConfig.walls, null, 2));
+    setSensorsText(JSON.stringify(currentConfig.sensors, null, 2));
+  }, [currentConfig]);
+
+  // Handle config changes
+  const handleConfigChange = (newConfig: Partial<Config>) => {
+    const updatedConfig = { ...editConfig, ...newConfig };
+    setEditConfig(updatedConfig);
+    config.value = updatedConfig;
+  };
+
+  // Handle walls text change
+  const handleWallsChange = (value: string) => {
+    setWallsText(value);
+    try {
+      const parsedWalls = JSON.parse(value);
+      if (Array.isArray(parsedWalls)) {
+        handleConfigChange({ walls: parsedWalls });
+        setConfigError('');
+      } else {
+        setConfigError('Walls must be an array');
+      }
+    } catch (error) {
+      setConfigError(`Walls JSON error: ${error instanceof Error ? error.message : 'Invalid JSON'}`);
+    }
+  };
+
+  // Handle sensors text change
+  const handleSensorsChange = (value: string) => {
+    setSensorsText(value);
+    try {
+      const parsedSensors = JSON.parse(value);
+      if (Array.isArray(parsedSensors)) {
+        handleConfigChange({ sensors: parsedSensors });
+        setConfigError('');
+      } else {
+        setConfigError('Sensors must be an array');
+      }
+    } catch (error) {
+      setConfigError(`Sensors JSON error: ${error instanceof Error ? error.message : 'Invalid JSON'}`);
+    }
+  };
+
+  // Render visual editor in edit mode
+  if (isEditMode) {
+    return (
+      <Card className="h-full bg-transparent border-transparent shadow-none">
+        <CardContent className="p-4">
+          <h3 className="text-lg font-semibold mb-4">Temperature Map Card Configuration</h3>
+          
+          <div className="space-y-6">
+            {/* General Settings Section */}
+            <div className="space-y-4">
+              <h4 className="text-md font-medium border-b pb-2">General Settings</h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Card Title</label>
+                  <input
+                    type="text"
+                    value={editConfig.title || ''}
+                    onChange={(e) => handleConfigChange({ title: e.target.value || undefined })}
+                    className="w-full p-2 border rounded text-sm"
+                    placeholder="Optional card title"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Rotation</label>
+                  <select
+                    value={editConfig.rotation || 0}
+                    onChange={(e) => handleConfigChange({ rotation: Number(e.target.value) as 0 | 90 | 180 | 270 })}
+                    className="w-full p-2 border rounded text-sm"
+                  >
+                    <option value={0}>0° (No rotation)</option>
+                    <option value={90}>90° (Clockwise)</option>
+                    <option value={180}>180° (Upside down)</option>
+                    <option value={270}>270° (Counter-clockwise)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Canvas Width</label>
+                  <input
+                    type="number"
+                    value={editConfig.width || ''}
+                    onChange={(e) => handleConfigChange({ width: e.target.value ? Number(e.target.value) : undefined })}
+                    className="w-full p-2 border rounded text-sm"
+                    placeholder="Auto-calculated from walls/sensors"
+                    min="100"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Canvas Height</label>
+                  <input
+                    type="number"
+                    value={editConfig.height || ''}
+                    onChange={(e) => handleConfigChange({ height: e.target.value ? Number(e.target.value) : undefined })}
+                    className="w-full p-2 border rounded text-sm"
+                    placeholder="Auto-calculated from walls/sensors"
+                    min="100"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Padding (pixels)</label>
+                <input
+                  type="number"
+                  value={editConfig.padding || 0}
+                  onChange={(e) => handleConfigChange({ padding: Number(e.target.value) || 0 })}
+                  className="w-full p-2 border rounded text-sm"
+                  min="0"
+                />
+              </div>
+            </div>
+
+            {/* Temperature Settings Section */}
+            <div className="space-y-4">
+              <h4 className="text-md font-medium border-b pb-2">Temperature Settings</h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Min Temperature (°C)</label>
+                  <input
+                    type="number"
+                    value={editConfig.min_temp || 15}
+                    onChange={(e) => handleConfigChange({ min_temp: Number(e.target.value) || 15 })}
+                    className="w-full p-2 border rounded text-sm"
+                    step="0.1"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Max Temperature (°C)</label>
+                  <input
+                    type="number"
+                    value={editConfig.max_temp || 30}
+                    onChange={(e) => handleConfigChange({ max_temp: Number(e.target.value) || 30 })}
+                    className="w-full p-2 border rounded text-sm"
+                    step="0.1"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Ambient Temperature (°C)</label>
+                  <input
+                    type="number"
+                    value={editConfig.ambient_temp || 22}
+                    onChange={(e) => handleConfigChange({ ambient_temp: Number(e.target.value) || 22 })}
+                    className="w-full p-2 border rounded text-sm"
+                    step="0.1"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Too Cold Threshold (°C)</label>
+                  <input
+                    type="number"
+                    value={editConfig.too_cold_temp || 20}
+                    onChange={(e) => handleConfigChange({ too_cold_temp: Number(e.target.value) || 20 })}
+                    className="w-full p-2 border rounded text-sm"
+                    step="0.1"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Too Warm Threshold (°C)</label>
+                  <input
+                    type="number"
+                    value={editConfig.too_warm_temp || 26}
+                    onChange={(e) => handleConfigChange({ too_warm_temp: Number(e.target.value) || 26 })}
+                    className="w-full p-2 border rounded text-sm"
+                    step="0.1"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Display Settings Section */}
+            <div className="space-y-4">
+              <h4 className="text-md font-medium border-b pb-2">Display Settings</h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="show_sensor_names"
+                    checked={editConfig.show_sensor_names !== false}
+                    onChange={(e) => handleConfigChange({ show_sensor_names: e.target.checked })}
+                    className="mr-2"
+                  />
+                  <label htmlFor="show_sensor_names" className="text-sm font-medium">Show Sensor Names</label>
+                </div>
+                
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="show_sensor_temperatures"
+                    checked={editConfig.show_sensor_temperatures !== false}
+                    onChange={(e) => handleConfigChange({ show_sensor_temperatures: e.target.checked })}
+                    className="mr-2"
+                  />
+                  <label htmlFor="show_sensor_temperatures" className="text-sm font-medium">Show Sensor Temperatures</label>
+                </div>
+              </div>
+            </div>
+
+            {/* Walls Section */}
+            <div className="space-y-4">
+              <h4 className="text-md font-medium border-b pb-2">Walls Configuration</h4>
+              <p className="text-sm text-gray-600">
+                Define walls as an array of objects with x1, y1, x2, y2 coordinates.
+              </p>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">Walls JSON:</label>
+                <textarea
+                  value={wallsText}
+                  onChange={(e) => handleWallsChange(e.target.value)}
+                  className="w-full h-32 p-3 border rounded font-mono text-sm"
+                  placeholder='[{"x1": 0, "y1": 0, "x2": 400, "y2": 0}]'
+                />
+              </div>
+            </div>
+
+            {/* Sensors Section */}
+            <div className="space-y-4">
+              <h4 className="text-md font-medium border-b pb-2">Sensors Configuration</h4>
+              <p className="text-sm text-gray-600">
+                Define temperature sensors with their positions and Home Assistant entity IDs.
+              </p>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">Sensors JSON:</label>
+                <textarea
+                  value={sensorsText}
+                  onChange={(e) => handleSensorsChange(e.target.value)}
+                  className="w-full h-32 p-3 border rounded font-mono text-sm"
+                  placeholder='[{"x": 200, "y": 150, "entity": "sensor.temperature", "label": "Living Room"}]'
+                />
+              </div>
+            </div>
+
+            {/* Error Display */}
+            {configError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+                {configError}
+              </div>
+            )}
+
+            {/* Preview Section */}
+            <div className="space-y-4">
+              <h4 className="text-md font-medium border-b pb-2">Preview</h4>
+              <p className="text-sm text-gray-600">
+                Preview shows walls and sensors without the heat map for performance.
+              </p>
+              
+              <div className="flex justify-center bg-gray-100 p-4 rounded">
+                <canvas
+                  ref={canvasRef}
+                  style={{ maxWidth: '100%', height: 'auto', background: '#f0f0f0' }}
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="h-full bg-transparent border-transparent shadow-none">

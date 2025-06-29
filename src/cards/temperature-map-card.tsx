@@ -115,10 +115,11 @@ const useDebouncedComputationConfig = (
   return debouncedConfig;
 };
 
-export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => {
+export const TemperatureMapCard = ({ hass, config, editMode }: ReactCardProps<Config>) => {
   useSignals();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const currentConfig = config.value;
+  const isEditMode = editMode.value;
   
   // Get sensor states directly from Home Assistant using the entity IDs
   const sensorStates = useMemo(() => 
@@ -310,16 +311,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     canvas.width = debouncedComputationConfig.dimensions.width;
     canvas.height = debouncedComputationConfig.dimensions.height;
 
-    // Show initial loading placeholder with transparent background
     const { width: canvasWidth, height: canvasHeight } = debouncedComputationConfig.dimensions;
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-    ctx.fillStyle = '#666';
-    ctx.font = '16px system-ui';
-    ctx.textAlign = 'center';
-    ctx.fillText('Computing temperature map...', canvasWidth / 2, canvasHeight / 2);
-
-    let cancelDistanceGrid: (() => void) | null = null;
-    let isCancelled = false;
 
     // Helper function to draw walls and sensors
     const drawOverlay = (
@@ -367,6 +359,29 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
         }
       });
     };
+
+    // In edit mode, skip expensive computations and just render walls and sensors
+    if (isEditMode) {
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+      
+      // Set light gray background for edit mode to make walls and sensors visible
+      ctx.fillStyle = '#f5f5f5';
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      
+      // Just draw walls and sensors directly without heat map
+      drawOverlay(ctx, debouncedComputationConfig.walls, debouncedComputationConfig.sensors);
+      return;
+    }
+
+    // Production mode - show loading placeholder and compute heat map
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    ctx.fillStyle = '#666';
+    ctx.font = '16px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Computing temperature map...', canvasWidth / 2, canvasHeight / 2);
+
+    let cancelDistanceGrid: (() => void) | null = null;
+    let isCancelled = false;
 
     // Create off-screen canvas for rendering
     const offscreenCanvas = document.createElement('canvas');
@@ -453,7 +468,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
         cancelDistanceGrid();
       }
     };
-  }, [debouncedComputationConfig, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures]);
+  }, [debouncedComputationConfig, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures, isEditMode]);
 
   return (
     <Card className="h-full bg-transparent border-transparent shadow-none">

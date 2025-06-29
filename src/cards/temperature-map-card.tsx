@@ -2,6 +2,7 @@ import { type ReactCardProps } from '@/lib/create-react-card';
 import { Card, CardContent } from '@/components/ui/card';
 import { useSignals } from '@preact/signals-react/runtime';
 import { useEffect, useRef, useMemo, useState } from 'react';
+import { Signal } from '@preact/signals-react';
 
 // Import utility functions from new modules
 import type { Wall, TemperatureSensor } from '@/lib/temperature-map/types';
@@ -115,10 +116,242 @@ const useDebouncedComputationConfig = (
   return debouncedConfig;
 };
 
-export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => {
+// Visual Editor Component for Edit Mode
+const VisualEditor = ({ config }: { config: Signal<Config> }) => {
+  useSignals();
+  const currentConfig = config.value;
+  const [wallsJson, setWallsJson] = useState(JSON.stringify(currentConfig.walls, null, 2));
+  const [sensorsJson, setSensorsJson] = useState(JSON.stringify(currentConfig.sensors, null, 2));
+  const [wallsError, setWallsError] = useState<string | null>(null);
+  const [sensorsError, setSensorsError] = useState<string | null>(null);
+
+  // Update config when form values change
+  const updateConfig = (updates: Partial<Config>) => {
+    config.value = { ...currentConfig, ...updates };
+  };
+
+  const handleWallsChange = (value: string) => {
+    setWallsJson(value);
+    try {
+      const parsedWalls = JSON.parse(value);
+      if (Array.isArray(parsedWalls)) {
+        updateConfig({ walls: parsedWalls });
+        setWallsError(null);
+      } else {
+        setWallsError('Walls must be an array');
+      }
+    } catch (error) {
+      setWallsError(`JSON Error: ${error instanceof Error ? error.message : 'Invalid JSON'}`);
+    }
+  };
+
+  const handleSensorsChange = (value: string) => {
+    setSensorsJson(value);
+    try {
+      const parsedSensors = JSON.parse(value);
+      if (Array.isArray(parsedSensors)) {
+        updateConfig({ sensors: parsedSensors });
+        setSensorsError(null);
+      } else {
+        setSensorsError('Sensors must be an array');
+      }
+    } catch (error) {
+      setSensorsError(`JSON Error: ${error instanceof Error ? error.message : 'Invalid JSON'}`);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* General Settings */}
+      <div className="space-y-4">
+        <h4 className="text-lg font-medium">General Settings</h4>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Title</label>
+            <input
+              type="text"
+              value={currentConfig.title || ''}
+              onChange={(e) => updateConfig({ title: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              placeholder="Card title"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-1">Rotation</label>
+            <select
+              value={currentConfig.rotation || 0}
+              onChange={(e) => updateConfig({ rotation: parseInt(e.target.value) as 0 | 90 | 180 | 270 })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            >
+              <option value={0}>0°</option>
+              <option value={90}>90°</option>
+              <option value={180}>180°</option>
+              <option value={270}>270°</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Width</label>
+            <input
+              type="number"
+              value={currentConfig.width || ''}
+              onChange={(e) => updateConfig({ width: e.target.value ? parseInt(e.target.value) : undefined })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              placeholder="Auto"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-1">Height</label>
+            <input
+              type="number"
+              value={currentConfig.height || ''}
+              onChange={(e) => updateConfig({ height: e.target.value ? parseInt(e.target.value) : undefined })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              placeholder="Auto"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-1">Padding</label>
+            <input
+              type="number"
+              value={currentConfig.padding || 0}
+              onChange={(e) => updateConfig({ padding: parseInt(e.target.value) || 0 })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Temperature Settings */}
+      <div className="space-y-4">
+        <h4 className="text-lg font-medium">Temperature Settings</h4>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Min Temperature</label>
+            <input
+              type="number"
+              value={currentConfig.min_temp || 15}
+              onChange={(e) => updateConfig({ min_temp: parseFloat(e.target.value) || 15 })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-1">Max Temperature</label>
+            <input
+              type="number"
+              value={currentConfig.max_temp || 30}
+              onChange={(e) => updateConfig({ max_temp: parseFloat(e.target.value) || 30 })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Too Cold Temp</label>
+            <input
+              type="number"
+              value={currentConfig.too_cold_temp || 20}
+              onChange={(e) => updateConfig({ too_cold_temp: parseFloat(e.target.value) || 20 })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-1">Too Warm Temp</label>
+            <input
+              type="number"
+              value={currentConfig.too_warm_temp || 26}
+              onChange={(e) => updateConfig({ too_warm_temp: parseFloat(e.target.value) || 26 })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-1">Ambient Temp</label>
+            <input
+              type="number"
+              value={currentConfig.ambient_temp || 22}
+              onChange={(e) => updateConfig({ ambient_temp: parseFloat(e.target.value) || 22 })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Display Settings */}
+      <div className="space-y-4">
+        <h4 className="text-lg font-medium">Display Settings</h4>
+        
+        <div className="flex space-x-6">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={currentConfig.show_sensor_names !== false}
+              onChange={(e) => updateConfig({ show_sensor_names: e.target.checked })}
+              className="mr-2"
+            />
+            Show sensor names
+          </label>
+          
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={currentConfig.show_sensor_temperatures !== false}
+              onChange={(e) => updateConfig({ show_sensor_temperatures: e.target.checked })}
+              className="mr-2"
+            />
+            Show sensor temperatures
+          </label>
+        </div>
+      </div>
+
+      {/* Walls Configuration */}
+      <div className="space-y-4">
+        <h4 className="text-lg font-medium">Walls Configuration</h4>
+        <div>
+          <label className="block text-sm font-medium mb-1">Walls (JSON Array)</label>
+          <textarea
+            value={wallsJson}
+            onChange={(e) => handleWallsChange(e.target.value)}
+            className={`w-full px-3 py-2 border rounded-md font-mono text-sm h-32 ${wallsError ? 'border-red-500' : 'border-gray-300'}`}
+            placeholder='[{"x1": 0, "y1": 0, "x2": 200, "y2": 0}]'
+          />
+          {wallsError && <p className="text-red-500 text-sm mt-1">{wallsError}</p>}
+        </div>
+      </div>
+
+      {/* Sensors Configuration */}
+      <div className="space-y-4">
+        <h4 className="text-lg font-medium">Sensors Configuration</h4>
+        <div>
+          <label className="block text-sm font-medium mb-1">Sensors (JSON Array)</label>
+          <textarea
+            value={sensorsJson}
+            onChange={(e) => handleSensorsChange(e.target.value)}
+            className={`w-full px-3 py-2 border rounded-md font-mono text-sm h-32 ${sensorsError ? 'border-red-500' : 'border-gray-300'}`}
+            placeholder='[{"entity": "sensor.temp", "x": 100, "y": 100, "label": "Living Room"}]'
+          />
+          {sensorsError && <p className="text-red-500 text-sm mt-1">{sensorsError}</p>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const TemperatureMapCard = ({ hass, config, editMode }: ReactCardProps<Config>) => {
   useSignals();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const currentConfig = config.value;
+  const isEditMode = editMode.value;
   
   // Get sensor states directly from Home Assistant using the entity IDs
   const sensorStates = useMemo(() => 
@@ -300,6 +533,53 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
     }
   };
 
+  // Helper function to draw walls and sensors
+  const drawOverlay = (
+    context: CanvasRenderingContext2D, 
+    walls: Wall[], 
+    sensors: Array<{ x: number; y: number; temp: number; label?: string }>
+  ) => {
+    // Draw walls
+    context.strokeStyle = '#333';
+    context.lineWidth = 2;
+    walls.forEach(wall => {
+      context.beginPath();
+      context.moveTo(wall.x1, wall.y1);
+      context.lineTo(wall.x2, wall.y2);
+      context.stroke();
+    });
+
+    // Draw sensors
+    sensors.forEach(sensor => {
+      // Draw outer clickable area hint (subtle)
+      context.fillStyle = 'rgba(51, 51, 51, 0.1)';
+      context.beginPath();
+      context.arc(sensor.x, sensor.y, 12, 0, 2 * Math.PI);
+      context.fill();
+      
+      // Draw main sensor circle (smaller)
+      context.fillStyle = '#fff';
+      context.strokeStyle = '#333';
+      context.lineWidth = 1.5;
+      context.beginPath();
+      context.arc(sensor.x, sensor.y, 6, 0, 2 * Math.PI);
+      context.fill();
+      context.stroke();
+
+      context.fillStyle = '#333';
+      context.font = '12px system-ui';
+      context.textAlign = 'center';
+      
+      if (show_sensor_temperatures) {
+        context.fillText(`${sensor.temp.toFixed(1)}°`, sensor.x, sensor.y - 12);
+      }
+      
+      if (show_sensor_names && sensor.label) {
+        context.fillText(sensor.label, sensor.x, sensor.y + 24);
+      }
+    });
+  };
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || debouncedComputationConfig.sensors.length === 0) return;
@@ -309,6 +589,20 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
 
     canvas.width = debouncedComputationConfig.dimensions.width;
     canvas.height = debouncedComputationConfig.dimensions.height;
+
+    // In edit mode, skip expensive heatmap calculations and show simple preview
+    if (isEditMode) {
+      const { width: canvasWidth, height: canvasHeight } = debouncedComputationConfig.dimensions;
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+      
+      // Light gray background for edit mode
+      ctx.fillStyle = '#f5f5f5';
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      
+      // Draw walls and sensors overlay without heatmap
+      drawOverlay(ctx, debouncedComputationConfig.walls, debouncedComputationConfig.sensors);
+      return;
+    }
 
     // Show initial loading placeholder with transparent background
     const { width: canvasWidth, height: canvasHeight } = debouncedComputationConfig.dimensions;
@@ -320,53 +614,6 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
 
     let cancelDistanceGrid: (() => void) | null = null;
     let isCancelled = false;
-
-    // Helper function to draw walls and sensors
-    const drawOverlay = (
-      context: CanvasRenderingContext2D, 
-      walls: Wall[], 
-      sensors: Array<{ x: number; y: number; temp: number; label?: string }>
-    ) => {
-      // Draw walls
-      context.strokeStyle = '#333';
-      context.lineWidth = 2;
-      walls.forEach(wall => {
-        context.beginPath();
-        context.moveTo(wall.x1, wall.y1);
-        context.lineTo(wall.x2, wall.y2);
-        context.stroke();
-      });
-
-      // Draw sensors
-      sensors.forEach(sensor => {
-        // Draw outer clickable area hint (subtle)
-        context.fillStyle = 'rgba(51, 51, 51, 0.1)';
-        context.beginPath();
-        context.arc(sensor.x, sensor.y, 12, 0, 2 * Math.PI);
-        context.fill();
-        
-        // Draw main sensor circle (smaller)
-        context.fillStyle = '#fff';
-        context.strokeStyle = '#333';
-        context.lineWidth = 1.5;
-        context.beginPath();
-        context.arc(sensor.x, sensor.y, 6, 0, 2 * Math.PI);
-        context.fill();
-        context.stroke();
-
-        context.fillStyle = '#333';
-        context.font = '12px system-ui';
-        context.textAlign = 'center';
-        
-        if (show_sensor_temperatures) {
-          context.fillText(`${sensor.temp.toFixed(1)}°`, sensor.x, sensor.y - 12);
-        }
-        
-        if (show_sensor_names && sensor.label) {
-          context.fillText(sensor.label, sensor.x, sensor.y + 24);
-        }
-      });
-    };
 
     // Create off-screen canvas for rendering
     const offscreenCanvas = document.createElement('canvas');
@@ -453,7 +700,7 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
         cancelDistanceGrid();
       }
     };
-  }, [debouncedComputationConfig, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures]);
+  }, [debouncedComputationConfig, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures, isEditMode]);
 
   return (
     <Card className="h-full bg-transparent border-transparent shadow-none">
@@ -461,18 +708,25 @@ export const TemperatureMapCard = ({ hass, config }: ReactCardProps<Config>) => 
         {currentConfig.title && (
           <h3 className="text-lg font-semibold mb-4">{currentConfig.title}</h3>
         )}
-        <div className="flex justify-center">
-          <canvas
-            ref={canvasRef}
-            style={{ maxWidth: '100%', height: 'auto', background: 'transparent' }}
-            onClick={handleCanvasClick}
-            onMouseMove={handleCanvasMouseMove}
-          />
-        </div>
-        {sensorData.length === 0 && (
-          <div className="text-center text-muted-foreground mt-4">
-            No sensor data available
-          </div>
+        
+        {isEditMode ? (
+          <VisualEditor config={config} />
+        ) : (
+          <>
+            <div className="flex justify-center">
+              <canvas
+                ref={canvasRef}
+                style={{ maxWidth: '100%', height: 'auto', background: 'transparent' }}
+                onClick={handleCanvasClick}
+                onMouseMove={handleCanvasMouseMove}
+              />
+            </div>
+            {sensorData.length === 0 && (
+              <div className="text-center text-muted-foreground mt-4">
+                No sensor data available
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>

@@ -38,5 +38,4 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           timeout_minutes: "30"
-          allowed_tools: |
-            Bash(*)
+          allowed_tools: "Bash"

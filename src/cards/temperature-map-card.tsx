@@ -1,7 +1,7 @@
 import { type ReactCardProps } from '@/lib/create-react-card';
 import { Card, CardContent } from '@/components/ui/card';
 import { useSignals } from '@preact/signals-react/runtime';
-import { useEffect, useRef, useMemo, useState } from 'react';
+import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { Signal } from '@preact/signals-react';
 
 // Import utility functions from new modules
@@ -534,7 +534,7 @@ export const TemperatureMapCard = ({ hass, config, editMode }: ReactCardProps<Co
   };
 
   // Helper function to draw walls and sensors
-  const drawOverlay = (
+  const drawOverlay = useCallback((
     context: CanvasRenderingContext2D, 
     walls: Wall[], 
     sensors: Array<{ x: number; y: number; temp: number; label?: string }>
@@ -578,7 +578,7 @@ export const TemperatureMapCard = ({ hass, config, editMode }: ReactCardProps<Co
         context.fillText(sensor.label, sensor.x, sensor.y + 24);
       }
     });
-  };
+  }, [show_sensor_temperatures, show_sensor_names]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -700,7 +700,7 @@ export const TemperatureMapCard = ({ hass, config, editMode }: ReactCardProps<Co
         cancelDistanceGrid();
       }
     };
-  }, [debouncedComputationConfig, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures, isEditMode]);
+  }, [debouncedComputationConfig, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures, isEditMode, drawOverlay]);
 
   return (
     <Card className="h-full bg-transparent border-transparent shadow-none">

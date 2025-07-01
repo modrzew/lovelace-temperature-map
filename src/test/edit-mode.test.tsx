@@ -5,14 +5,24 @@ import '@testing-library/jest-dom'
 
 // Import the TemperatureMapCard component
 import { TemperatureMapCard } from '@/cards/temperature-map-card'
+import { HomeAssistant } from '@/lib/types'
+import { hass as mockHassData } from '@/mocks/hass'
+import { createTemperatureSensor } from '@/mocks/sensors'
 
-// Mock Home Assistant
+// Mock Home Assistant with proper typing
 const mockHass = signal({
+  ...mockHassData,
   states: {
-    'sensor.temp1': { state: '22.5', attributes: { friendly_name: 'Living Room' } },
-    'sensor.temp2': { state: '24.0', attributes: { friendly_name: 'Kitchen' } }
+    ...createTemperatureSensor('sensor.temp1', { 
+      state: '22.5', 
+      attributes: { friendly_name: 'Living Room', device_class: 'temperature', state_class: 'measurement' }
+    }),
+    ...createTemperatureSensor('sensor.temp2', { 
+      state: '24.0', 
+      attributes: { friendly_name: 'Kitchen', device_class: 'temperature', state_class: 'measurement' }
+    })
   }
-})
+} as HomeAssistant)
 
 // Base configuration for testing
 const baseConfig = {
@@ -25,6 +35,8 @@ const baseConfig = {
     { entity: 'sensor.temp2', x: 150, y: 100, label: 'Kitchen' }
   ],
   title: 'Temperature Map',
+  width: 400,
+  height: 300,
   min_temp: 15,
   max_temp: 30,
   too_cold_temp: 20,

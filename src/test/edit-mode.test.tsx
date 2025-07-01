@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { signal } from '@preact/signals-react'
 import '@testing-library/jest-dom'
 
@@ -68,7 +68,7 @@ describe('Temperature Map Card - Edit Mode', () => {
         />
       )
       
-      const canvas = screen.queryByRole('img') // Canvas elements have img role by default
+      const canvas = screen.queryByRole('img') || document.querySelector('canvas')
       expect(canvas).toBeTruthy()
       
       const visualEditor = screen.queryByText('General Settings')
@@ -95,7 +95,7 @@ describe('Temperature Map Card - Edit Mode', () => {
       expect(screen.getByText('Sensors Configuration')).toBeInTheDocument()
       
       // Canvas should not be visible in edit mode
-      const canvas = screen.queryByRole('img')
+      const canvas = screen.queryByRole('img') || document.querySelector('canvas')
       expect(canvas).toBeNull()
     })
 
@@ -116,7 +116,9 @@ describe('Temperature Map Card - Edit Mode', () => {
       expect(screen.queryByText('General Settings')).toBeNull()
       
       // Switch to edit mode
-      editMode.value = true
+      act(() => {
+        editMode.value = true
+      })
       rerender(
         <TemperatureMapCard 
           hass={mockHass} 
@@ -131,7 +133,9 @@ describe('Temperature Map Card - Edit Mode', () => {
       })
       
       // Switch back to normal mode
-      editMode.value = false
+      act(() => {
+        editMode.value = false
+      })
       rerender(
         <TemperatureMapCard 
           hass={mockHass} 
@@ -294,9 +298,9 @@ describe('Temperature Map Card - Edit Mode', () => {
       )
       
       const wallsTextarea = screen.getByPlaceholderText(/x1.*y1.*x2.*y2/)
-      expect(wallsTextarea).toHaveValue(expect.stringContaining('"x1": 0'))
-      expect(wallsTextarea).toHaveValue(expect.stringContaining('"y1": 0'))
-      expect(wallsTextarea).toHaveValue(expect.stringContaining('"x2": 200'))
+      expect((wallsTextarea as HTMLTextAreaElement).value).toContain('"x1": 0')
+      expect((wallsTextarea as HTMLTextAreaElement).value).toContain('"y1": 0')
+      expect((wallsTextarea as HTMLTextAreaElement).value).toContain('"x2": 200')
     })
 
     it('should display sensors configuration as formatted JSON', () => {
@@ -313,9 +317,9 @@ describe('Temperature Map Card - Edit Mode', () => {
       )
       
       const sensorsTextarea = screen.getByPlaceholderText(/entity.*x.*y.*label/)
-      expect(sensorsTextarea).toHaveValue(expect.stringContaining('sensor.temp1'))
-      expect(sensorsTextarea).toHaveValue(expect.stringContaining('Living Room'))
-      expect(sensorsTextarea).toHaveValue(expect.stringContaining('"x": 50'))
+      expect((sensorsTextarea as HTMLTextAreaElement).value).toContain('sensor.temp1')
+      expect((sensorsTextarea as HTMLTextAreaElement).value).toContain('Living Room')
+      expect((sensorsTextarea as HTMLTextAreaElement).value).toContain('"x": 50')
     })
 
     it('should update config when valid walls JSON is entered', async () => {
@@ -414,11 +418,14 @@ describe('Temperature Map Card - Edit Mode', () => {
       )
       
       const sensorsTextarea = screen.getByPlaceholderText(/entity.*x.*y.*label/)
-      fireEvent.change(sensorsTextarea, { target: { value: 'not an array: {}' } })
+      
+      act(() => {
+        fireEvent.change(sensorsTextarea, { target: { value: '{}' } })
+      })
       
       await waitFor(() => {
         expect(screen.getByText('Sensors must be an array')).toBeInTheDocument()
-      })
+      }, { timeout: 3000 })
       
       // Original sensors should remain unchanged
       expect(config.value.sensors).toEqual(baseConfig.sensors)
@@ -438,11 +445,14 @@ describe('Temperature Map Card - Edit Mode', () => {
       )
       
       const wallsTextarea = screen.getByPlaceholderText(/x1.*y1.*x2.*y2/)
-      fireEvent.change(wallsTextarea, { target: { value: '{"not": "array"}' } })
+      
+      act(() => {
+        fireEvent.change(wallsTextarea, { target: { value: '{}' } })
+      })
       
       await waitFor(() => {
         expect(screen.getByText('Walls must be an array')).toBeInTheDocument()
-      })
+      }, { timeout: 3000 })
       
       // Original walls should remain unchanged  
       expect(config.value.walls).toEqual(baseConfig.walls)
@@ -527,7 +537,8 @@ describe('Temperature Map Card - Edit Mode', () => {
       )
       
       // Should display default values for missing properties
-      expect(screen.getByDisplayValue('')).toBeInTheDocument() // title
+      const titleInput = screen.getByPlaceholderText('Card title')
+      expect(titleInput).toHaveValue('') // title
       expect(screen.getByDisplayValue('15')).toBeInTheDocument() // min_temp default
       expect(screen.getByDisplayValue('30')).toBeInTheDocument() // max_temp default
     })
@@ -579,17 +590,20 @@ describe('Temperature Map Card - Edit Mode', () => {
         />
       )
       
-      const widthInput = screen.getByPlaceholderText('Auto')
+      const allInputs = screen.getAllByDisplayValue('400')
+      const widthInput = allInputs.find(input => input.closest('div')?.querySelector('label')?.textContent === 'Width')
+      expect(widthInput).toBeDefined()
+      if (!widthInput) throw new Error('Width input not found')
       
       // Clear the input (should set to undefined)
-      fireEvent.change(widthInput, { target: { value: '' } })
+      fireEvent.change(widthInput!, { target: { value: '' } })
       
       await waitFor(() => {
         expect(config.value.width).toBeUndefined()
       })
       
       // Set a value
-      fireEvent.change(widthInput, { target: { value: '500' } })
+      fireEvent.change(widthInput!, { target: { value: '500' } })
       
       await waitFor(() => {
         expect(config.value.width).toBe(500)

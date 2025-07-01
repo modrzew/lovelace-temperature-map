@@ -16,7 +16,7 @@
     "knip": "knip"
   },
   "dependencies": {
-    "@preact/signals-react": "^2.2.0",
+    "@preact/signals-react": "^3.2.1",
     "clsx": "^2.1.1",
     "home-assistant-js-websocket": "^9.4.0",
     "react": "19.0.0",
@@ -32,6 +32,7 @@
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react-swc": "^3.7.2",
+    "canvas": "^3.1.2",
     "eslint": "^9.16.0",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.16",

@@ -19,6 +19,7 @@
     "@preact/signals-react": "^3.2.1",
     "clsx": "^2.1.1",
     "home-assistant-js-websocket": "^9.4.0",
+    "js-yaml": "^4.1.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "tailwind-merge": "^2.5.5"
@@ -28,6 +29,7 @@
     "@tailwindcss/vite": "^4.0.5",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^14.0.0",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.15.32",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.2",

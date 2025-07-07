@@ -8,6 +8,7 @@ export type ReactCardProps<T> = {
   config: Signal<T>;
   cardSize: Signal<number>;
   editMode: Signal<boolean>;
+  previewMode?: Signal<boolean>;
 };
 
 export const createReactCard = (
@@ -23,6 +24,7 @@ export const createReactCard = (
       config: signal({}),
       cardSize: signal(1),
       editMode: signal(false),
+      previewMode: signal(false),
     };
 
     constructor() {
@@ -45,6 +47,10 @@ export const createReactCard = (
       this.signals.editMode.value = editMode;
     }
 
+    set previewMode(previewMode: boolean) {
+      this.signals.previewMode.value = previewMode;
+    }
+
     render() {
       this.root.render(
         <StrictMode>
@@ -54,6 +60,7 @@ export const createReactCard = (
             config={this.signals.config}
             cardSize={this.signals.cardSize}
             editMode={this.signals.editMode}
+            previewMode={this.signals.previewMode}
           />
         </StrictMode>,
       );

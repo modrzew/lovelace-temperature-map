@@ -1,5 +1,6 @@
 import { TemperatureMapCard } from '@/cards/temperature-map-card';
 import { createReactCard } from '@/lib/create-react-card';
+import '@/temperature-map-config-editor';
 import globalStyles from './global.css?inline';
 import styles from './index.css?inline';
 

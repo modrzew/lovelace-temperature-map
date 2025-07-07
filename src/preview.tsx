@@ -25,6 +25,8 @@ const createAndDisplayCard = (
   (element as any).setConfig(config);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (element as any).hass = hass;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (element as any).previewMode = true;
   parentElement.appendChild(element);
 };
 

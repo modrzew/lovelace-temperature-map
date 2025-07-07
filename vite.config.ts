@@ -17,6 +17,10 @@ export default defineConfig({
   preview: {
     port: 5173,
     strictPort: true,
+    cors: {
+      origin: true, // Allow any origin
+      credentials: true,
+    },
   },
   build: {
     sourcemap: true,

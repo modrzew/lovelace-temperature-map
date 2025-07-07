@@ -11,6 +11,35 @@ import { computeDistanceGridAsync, isPointInsideBoundary } from '@/lib/temperatu
 // Import config editor
 import '@/temperature-map-config-editor';
 
+// Cache for rendered images to improve performance on re-renders
+const renderedImageCache = new Map<string, HTMLCanvasElement>();
+
+// Helper function to generate cache key for rendered images
+const generateRenderCacheKey = (
+  sensors: Array<{ x: number; y: number; temp: number; label: string; entity: string }>,
+  walls: Wall[],
+  dimensions: { width: number; height: number },
+  colorSettings: {
+    min_temp: number;
+    max_temp: number;
+    too_cold_temp: number;
+    too_warm_temp: number;
+    ambient_temp: number;
+  },
+  displaySettings: {
+    show_sensor_names: boolean;
+    show_sensor_temperatures: boolean;
+  }
+): string => {
+  const sensorsKey = sensors.map(s => `${s.x},${s.y},${s.temp},${s.label}`).join('|');
+  const wallsKey = walls.map(w => `${w.x1},${w.y1},${w.x2},${w.y2}`).join('|');
+  const dimensionsKey = `${dimensions.width}x${dimensions.height}`;
+  const colorKey = `${colorSettings.min_temp},${colorSettings.max_temp},${colorSettings.too_cold_temp},${colorSettings.too_warm_temp},${colorSettings.ambient_temp}`;
+  const displayKey = `${displaySettings.show_sensor_names},${displaySettings.show_sensor_temperatures}`;
+  
+  return `${sensorsKey}:${wallsKey}:${dimensionsKey}:${colorKey}:${displayKey}`;
+};
+
 
 interface Config {
   title?: string;
@@ -80,7 +109,7 @@ const getRotatedDimensions = (width: number, height: number, rotation: 0 | 90 | 
 };
 
 // Custom hook for debouncing sensor data to prevent flickering
-const useDebouncedSensorData = (sensorData: Array<{ x: number; y: number; temp: number; label: string; entity: string }>, delay: number = 2000) => {
+const useDebouncedSensorData = (sensorData: Array<{ x: number; y: number; temp: number; label: string; entity: string }>, delay: number = 5 * 60 * 1000) => {
   const [debouncedSensorData, setDebouncedSensorData] = useState(sensorData);
   
   useEffect(() => {
@@ -125,6 +154,9 @@ export const TemperatureMapCard = ({ hass, config, previewMode, editMode }: Reac
   const currentConfig = config.value;
   const isPreviewMode = previewMode?.value ?? false;
   const isEditMode = editMode?.value ?? false;
+  
+  // State for loading indicator
+  const [isComputing, setIsComputing] = useState(false);
   
   // Get sensor states directly from Home Assistant using the entity IDs
   const sensorStates = useMemo(() => 
@@ -237,7 +269,7 @@ export const TemperatureMapCard = ({ hass, config, previewMode, editMode }: Reac
   );
 
   // Debounce sensor data to prevent frequent re-renders and flickering
-  const debouncedSensorData = useDebouncedSensorData(sensorData, 2000);
+  const debouncedSensorData = useDebouncedSensorData(sensorData, 5 * 60 * 1000); // 5 minutes
   
   // Debounce computation config to prevent excessive computation restarts
   const debouncedComputationConfig = useDebouncedComputationConfig(
@@ -377,6 +409,23 @@ export const TemperatureMapCard = ({ hass, config, previewMode, editMode }: Reac
       return;
     }
 
+    // Generate cache key for current configuration
+    const cacheKey = generateRenderCacheKey(
+      debouncedComputationConfig.sensors,
+      debouncedComputationConfig.walls,
+      debouncedComputationConfig.dimensions,
+      { min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp },
+      { show_sensor_names, show_sensor_temperatures }
+    );
+
+    // Check if we have a cached result
+    const cachedCanvas = renderedImageCache.get(cacheKey);
+    if (cachedCanvas) {
+      // Use cached result - much faster!
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(cachedCanvas, 0, 0);
+      return;
+    }
 
     // Show initial loading placeholder with transparent background
     const { width: canvasWidth, height: canvasHeight } = debouncedComputationConfig.dimensions;
@@ -385,6 +434,9 @@ export const TemperatureMapCard = ({ hass, config, previewMode, editMode }: Reac
     ctx.font = '16px system-ui';
     ctx.textAlign = 'center';
     ctx.fillText('Computing temperature map...', canvasWidth / 2, canvasHeight / 2);
+
+    // Set computing state for loading indicator
+    setIsComputing(true);
 
     let cancelDistanceGrid: (() => void) | null = null;
     let isCancelled = false;
@@ -422,6 +474,9 @@ export const TemperatureMapCard = ({ hass, config, previewMode, editMode }: Reac
         ctx.font = '16px system-ui';
         ctx.textAlign = 'center';
         ctx.fillText('Rendering temperature map...', canvasWidth / 2, canvasHeight / 2);
+
+        // Keep computing state active during rendering phase
+        // (isComputing is already true from earlier)
 
         // Render entire map to off-screen canvas at once
         const imageData = offscreenCtx.createImageData(canvasWidth, canvasHeight);
@@ -461,9 +516,30 @@ export const TemperatureMapCard = ({ hass, config, previewMode, editMode }: Reac
         // Draw walls and sensors on off-screen canvas
         drawOverlay(offscreenCtx, debouncedComputationConfig.walls, debouncedComputationConfig.sensors);
 
+        // Cache the completed canvas for future use
+        const cacheCanvas = document.createElement('canvas');
+        cacheCanvas.width = canvasWidth;
+        cacheCanvas.height = canvasHeight;
+        const cacheCtx = cacheCanvas.getContext('2d');
+        if (cacheCtx) {
+          cacheCtx.drawImage(offscreenCanvas, 0, 0);
+          renderedImageCache.set(cacheKey, cacheCanvas);
+          
+          // Limit cache size to prevent memory issues
+          if (renderedImageCache.size > 10) {
+            const firstKey = renderedImageCache.keys().next().value;
+            if (firstKey) {
+              renderedImageCache.delete(firstKey);
+            }
+          }
+        }
+
         // Copy completed off-screen canvas to main canvas in one operation
         ctx.clearRect(0, 0, canvasWidth, canvasHeight);
         ctx.drawImage(offscreenCanvas, 0, 0);
+        
+        // Clear computing state
+        setIsComputing(false);
       }
     );
 
@@ -473,6 +549,7 @@ export const TemperatureMapCard = ({ hass, config, previewMode, editMode }: Reac
       if (cancelDistanceGrid) {
         cancelDistanceGrid();
       }
+      setIsComputing(false);
     };
   }, [debouncedComputationConfig, min_temp, max_temp, too_cold_temp, too_warm_temp, ambient_temp, show_sensor_names, show_sensor_temperatures, isPreviewMode, isEditMode, drawOverlay]);
 
@@ -483,13 +560,18 @@ export const TemperatureMapCard = ({ hass, config, previewMode, editMode }: Reac
           <h3 className="text-lg font-semibold mb-4">{currentConfig.title}</h3>
         )}
         
-        <div className="flex justify-center">
+        <div className="flex justify-center relative">
           <canvas
             ref={canvasRef}
             style={{ maxWidth: '100%', height: 'auto', background: 'transparent' }}
             onClick={handleCanvasClick}
             onMouseMove={handleCanvasMouseMove}
           />
+          {isComputing && (
+            <div className="absolute bottom-2 right-2 bg-white/80 rounded-full p-2 shadow-lg">
+              <div className="w-4 h-4 border-2 border-gray-400 border-t-gray-800 rounded-full animate-spin"></div>
+            </div>
+          )}
         </div>
         {sensorData.length === 0 && (
           <div className="text-center text-muted-foreground mt-4">

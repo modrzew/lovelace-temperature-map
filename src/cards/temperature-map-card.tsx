@@ -108,21 +108,39 @@ const getRotatedDimensions = (width: number, height: number, rotation: 0 | 90 | 
   }
 };
 
-// Custom hook for debouncing sensor data to prevent flickering
-const useDebouncedSensorData = (sensorData: Array<{ x: number; y: number; temp: number; label: string; entity: string }>, delay: number = 5 * 60 * 1000) => {
-  const [debouncedSensorData, setDebouncedSensorData] = useState(sensorData);
+// Custom hook for throttling sensor data to prevent excessive updates
+const useThrottledSensorData = (sensorData: Array<{ x: number; y: number; temp: number; label: string; entity: string }>, delay: number = 5 * 60 * 1000) => {
+  const [throttledSensorData, setThrottledSensorData] = useState(sensorData);
+  const [isThrottling, setIsThrottling] = useState(false);
+  const latestDataRef = useRef(sensorData);
+  
+  // Always keep the latest data in the ref
+  useEffect(() => {
+    latestDataRef.current = sensorData;
+  }, [sensorData]);
   
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSensorData(sensorData);
-    }, delay);
-    
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [sensorData, delay]);
+    // If not currently throttling, update immediately and start throttling
+    if (!isThrottling) {
+      setThrottledSensorData(sensorData);
+      setIsThrottling(true);
+      
+      // Start throttle timer
+      const handler = setTimeout(() => {
+        // When timer expires, update with latest data and stop throttling
+        setThrottledSensorData(latestDataRef.current);
+        setIsThrottling(false);
+      }, delay);
+      
+      return () => {
+        clearTimeout(handler);
+        setIsThrottling(false);
+      };
+    }
+    // If currently throttling, ignore new data (it's stored in latestDataRef)
+  }, [sensorData, delay, isThrottling]);
   
-  return debouncedSensorData;
+  return throttledSensorData;
 };
 
 // Custom hook for debouncing computation-triggering values
@@ -268,13 +286,13 @@ export const TemperatureMapCard = ({ hass, config, previewMode, editMode }: Reac
     [sensorStates, hass.value?.states, rotatedSensors]
   );
 
-  // Debounce sensor data to prevent frequent re-renders and flickering
-  const debouncedSensorData = useDebouncedSensorData(sensorData, 5 * 60 * 1000); // 5 minutes
+  // Throttle sensor data to prevent excessive updates (at most once every 5 minutes)
+  const throttledSensorData = useThrottledSensorData(sensorData, 5 * 60 * 1000); // 5 minutes
   
   // Debounce computation config to prevent excessive computation restarts
   const debouncedComputationConfig = useDebouncedComputationConfig(
     rotatedWalls, 
-    debouncedSensorData, 
+    throttledSensorData, 
     { width, height },
     1000 // 1 second delay for computation changes
   );

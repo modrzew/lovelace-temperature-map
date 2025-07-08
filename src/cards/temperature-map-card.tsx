@@ -111,34 +111,41 @@ const getRotatedDimensions = (width: number, height: number, rotation: 0 | 90 | 
 // Custom hook for throttling sensor data to prevent excessive updates
 const useThrottledSensorData = (sensorData: Array<{ x: number; y: number; temp: number; label: string; entity: string }>, delay: number = 5 * 60 * 1000) => {
   const [throttledSensorData, setThrottledSensorData] = useState(sensorData);
-  const [isThrottling, setIsThrottling] = useState(false);
+  const lastUpdateRef = useRef(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
   const latestDataRef = useRef(sensorData);
   
   // Always keep the latest data in the ref
-  useEffect(() => {
-    latestDataRef.current = sensorData;
-  }, [sensorData]);
+  latestDataRef.current = sensorData;
   
   useEffect(() => {
-    // If not currently throttling, update immediately and start throttling
-    if (!isThrottling) {
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastUpdateRef.current;
+    
+    if (timeSinceLastUpdate >= delay) {
+      // Enough time has passed, update immediately
       setThrottledSensorData(sensorData);
-      setIsThrottling(true);
-      
-      // Start throttle timer
-      const handler = setTimeout(() => {
-        // When timer expires, update with latest data and stop throttling
+      lastUpdateRef.current = now;
+    } else if (!timerRef.current) {
+      // Not enough time has passed, schedule update only if no timer is running
+      timerRef.current = setTimeout(() => {
         setThrottledSensorData(latestDataRef.current);
-        setIsThrottling(false);
-      }, delay);
-      
-      return () => {
-        clearTimeout(handler);
-        setIsThrottling(false);
-      };
+        lastUpdateRef.current = Date.now();
+        timerRef.current = null;
+      }, delay - timeSinceLastUpdate);
     }
-    // If currently throttling, ignore new data (it's stored in latestDataRef)
-  }, [sensorData, delay, isThrottling]);
+    // If timer is already running, do nothing - let it complete
+  }, [sensorData, delay]);
+  
+  // Separate cleanup effect that only runs on component unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, []);
   
   return throttledSensorData;
 };

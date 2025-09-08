@@ -45,8 +45,7 @@ type: custom:temperature-map-card
 title: "Living Room Temperature"
 width: 400
 height: 300
-min_temp: 18
-max_temp: 28
+
 walls:
   - { x1: 50, y1: 50, x2: 350, y2: 50 }
   - { x1: 350, y1: 50, x2: 350, y2: 250 }

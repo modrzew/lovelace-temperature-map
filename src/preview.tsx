@@ -6,6 +6,7 @@ import "./preview.css";
 import { hass } from "./mocks/hass";
 import { TemperatureMapCard } from "./cards/temperature-map-card";
 import WallEditor from "./wall-editor";
+import TemperatureGradientShowcase from "./temperature-gradient-showcase";
 
 const styleSheet = new CSSStyleSheet();
 styleSheet.replaceSync(styles);
@@ -127,3 +128,14 @@ rootEl.appendChild(wallEditorContainer);
 
 const wallEditorRoot = createRoot(wallEditorContainer);
 wallEditorRoot.render(React.createElement(WallEditor));
+
+// Add temperature gradient showcase at the very bottom
+const showcaseContainer = document.createElement("div");
+showcaseContainer.style.marginTop = "3rem";
+showcaseContainer.style.borderTop = "2px solid #eee";
+showcaseContainer.style.paddingTop = "2rem";
+showcaseContainer.style.backgroundColor = "#f9f9f9";
+rootEl.appendChild(showcaseContainer);
+
+const showcaseRoot = createRoot(showcaseContainer);
+showcaseRoot.render(React.createElement(TemperatureGradientShowcase));

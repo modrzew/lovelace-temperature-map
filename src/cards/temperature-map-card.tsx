@@ -360,14 +360,13 @@ export const TemperatureMapCard = ({
 
   const sensorData = useMemo(() => {
     const validSensors = sensorStates
-      .filter((sensor) => {
+      .map((sensor, originalIndex) => {
         const hasValue =
           sensor.temperature.value &&
           !isNaN(parseFloat(sensor.temperature.value));
 
-        return hasValue;
-      })
-      .map((sensor, index) => {
+        if (!hasValue) return null;
+
         // Use provided label or fallback to entity's friendly name
         const entityState = hass.value?.states?.[sensor.entity];
         const displayLabel =
@@ -375,19 +374,20 @@ export const TemperatureMapCard = ({
           entityState?.attributes?.friendly_name ||
           sensor.entity;
 
-        // Use rotated sensor coordinates
-        const rotatedSensor = rotatedSensors[index];
+        // Use original index to get correct rotated sensor coordinates
+        const rotatedSensor = rotatedSensors[originalIndex];
 
         const result = {
           x: rotatedSensor.x,
           y: rotatedSensor.y,
-          temp: parseFloat(sensor.temperature.value!), // Non-null assertion since we filtered above
+          temp: parseFloat(sensor.temperature.value!), // Non-null assertion since we checked hasValue above
           label: displayLabel,
           entity: sensor.entity,
         };
 
         return result;
-      });
+      })
+      .filter((sensor): sensor is NonNullable<typeof sensor> => sensor !== null);
 
     return validSensors;
   }, [sensorStates, hass.value?.states, rotatedSensors]);

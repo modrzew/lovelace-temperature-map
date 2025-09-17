@@ -671,4 +671,99 @@ describe("Temperature Map Component Logic", () => {
       expect(validateCanvasContext(null)).toBe(false);
     });
   });
+
+  // =============================================================================
+  // SENSOR COORDINATE MAPPING TESTS
+  // =============================================================================
+
+  describe("Sensor Coordinate Mapping", () => {
+    // Test that demonstrates the bug where filtering sensors causes coordinate shifts
+    it("should maintain correct coordinates when sensors become unavailable", () => {
+      const mockHassStates: Record<string, { state: string; attributes: { friendly_name: string } }> = {
+        "sensor.temp_a": { state: "20.5", attributes: { friendly_name: "Temp A" } },
+        "sensor.temp_b": { state: "unavailable", attributes: { friendly_name: "Temp B" } },
+        "sensor.temp_c": { state: "23.0", attributes: { friendly_name: "Temp C" } },
+        "sensor.temp_d": { state: "24.5", attributes: { friendly_name: "Temp D" } },
+      };
+
+      const configSensors = [
+        { entity: "sensor.temp_a", x: 10, y: 10, label: "A" },
+        { entity: "sensor.temp_b", x: 20, y: 20, label: "B" },
+        { entity: "sensor.temp_c", x: 30, y: 30, label: "C" },
+        { entity: "sensor.temp_d", x: 40, y: 40, label: "D" },
+      ];
+
+      // Simulate the sensorStates creation (this includes all sensors)
+      const sensorStates = configSensors.map((sensor) => ({
+        ...sensor,
+        temperature: { value: mockHassStates[sensor.entity].state },
+      }));
+
+      // Simulate the rotatedSensors (coordinates for all sensors in original order)
+      const rotatedSensors = configSensors; // No rotation for this test
+
+      // Simulate the BUGGY sensorData creation logic from the component
+      const buggyFilteringLogic = () => {
+        return sensorStates
+          .filter((sensor) => {
+            const hasValue = sensor.temperature.value && !isNaN(parseFloat(sensor.temperature.value));
+            return hasValue;
+          })
+          .map((sensor, index) => {
+            // BUG: Using index from filtered array but coordinates from original array
+            const rotatedSensor = rotatedSensors[index];
+            
+            return {
+              x: rotatedSensor.x,
+              y: rotatedSensor.y,
+              temp: parseFloat(sensor.temperature.value!),
+              label: sensor.label,
+              entity: sensor.entity,
+            };
+          });
+      };
+
+      // Simulate the CORRECT logic that should be used
+      const correctFilteringLogic = () => {
+        return sensorStates
+          .map((sensor, originalIndex) => {
+            const hasValue = sensor.temperature.value && !isNaN(parseFloat(sensor.temperature.value));
+            if (!hasValue) return null;
+
+            // Use original index to get correct coordinates
+            const rotatedSensor = rotatedSensors[originalIndex];
+            
+            return {
+              x: rotatedSensor.x,
+              y: rotatedSensor.y,
+              temp: parseFloat(sensor.temperature.value!),
+              label: sensor.label,
+              entity: sensor.entity,
+            };
+          })
+          .filter(Boolean); // Remove null entries
+      };
+
+      const buggyResult = buggyFilteringLogic();
+      const correctResult = correctFilteringLogic();
+
+      // With the bug: sensor B is filtered out, so indices shift
+      expect(buggyResult).toHaveLength(3);
+      expect(buggyResult[0]).toMatchObject({ entity: "sensor.temp_a", x: 10, y: 10 }); // Correct
+      expect(buggyResult[1]).toMatchObject({ entity: "sensor.temp_c", x: 20, y: 20 }); // WRONG! Should be x:30, y:30
+      expect(buggyResult[2]).toMatchObject({ entity: "sensor.temp_d", x: 30, y: 30 }); // WRONG! Should be x:40, y:40
+
+      // With the correct logic: coordinates are preserved
+      expect(correctResult).toHaveLength(3);
+      expect(correctResult[0]).toMatchObject({ entity: "sensor.temp_a", x: 10, y: 10 }); // Correct
+      expect(correctResult[1]).toMatchObject({ entity: "sensor.temp_c", x: 30, y: 30 }); // Correct
+      expect(correctResult[2]).toMatchObject({ entity: "sensor.temp_d", x: 40, y: 40 }); // Correct
+
+      // Demonstrate the coordinate shifting bug
+      expect(buggyResult[1]?.x).not.toBe(correctResult[1]?.x);
+      expect(buggyResult[1]?.y).not.toBe(correctResult[1]?.y);
+      expect(buggyResult[2]?.x).not.toBe(correctResult[2]?.x);
+      expect(buggyResult[2]?.y).not.toBe(correctResult[2]?.y);
+    });
+  });
 });
